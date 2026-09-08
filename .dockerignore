@@ -1,0 +1,15 @@
+**/node_modules
+**/.next
+**/.git
+**/*.md
+!README.md
+terraform
+helm
+kubernetes
+monitoring
+security
+troubleshooting
+disaster-recovery
+docs
+scripts
+.github
