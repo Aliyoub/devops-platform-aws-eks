@@ -1,0 +1,37 @@
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+coverage/
+
+# Env files (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfplan
+terraform/.terraform.lock.hcl
+terraform/terraform.tfvars
+!terraform/terraform.tfvars.example
+crash.log
+
+# Helm
+helm/**/charts/
+helm/**/*.tgz
+
+# Kubernetes / kubeconfig
+kubeconfig*
+*.kubeconfig
+
+# OS / editor
+.DS_Store
+*.swp
+.vscode/
+.idea/
