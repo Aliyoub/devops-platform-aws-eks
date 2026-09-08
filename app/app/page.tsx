@@ -13,34 +13,34 @@ const STACK = [
 
 const SKILLS = [
   {
-    title: "Cloud infrastructure",
+    title: "Infrastructure cloud",
     description:
-      "VPC, subnets, IAM and EKS provisioned and versioned entirely with Terraform.",
+      "VPC, subnets, IAM et EKS provisionnés et versionnés entièrement avec Terraform.",
   },
   {
-    title: "Container platform",
+    title: "Plateforme conteneurs",
     description:
-      "A multi-stage, non-root Docker image deployed on Kubernetes via a Helm chart.",
+      "Une image Docker multi-stage, non-root, déployée sur Kubernetes via un chart Helm.",
   },
   {
     title: "CI/CD",
     description:
-      "GitHub Actions pipeline authenticating to AWS through OIDC, no static credentials.",
+      "Pipeline GitHub Actions authentifié à AWS via OIDC, sans credential statique.",
   },
   {
-    title: "Security",
+    title: "Sécurité",
     description:
-      "Least-privilege RBAC, restrictive SecurityContext, NetworkPolicy and image scanning.",
+      "RBAC least-privilege, SecurityContext restrictif, NetworkPolicy et scan d'image.",
   },
   {
-    title: "Observability",
+    title: "Observabilité",
     description:
-      "Prometheus and Grafana dashboards covering CPU, memory, pods and availability.",
+      "Dashboards Prometheus et Grafana couvrant CPU, mémoire, pods et disponibilité.",
   },
   {
-    title: "Operations",
+    title: "Exploitation",
     description:
-      "Real, reproduced incident scenarios and a tested disaster recovery procedure.",
+      "Des incidents réellement reproduits et une procédure de disaster recovery testée.",
   },
 ];
 
@@ -49,23 +49,24 @@ export default function Home() {
     <div className="mx-auto max-w-5xl px-6">
       <section className="flex flex-col gap-6 py-20">
         <p className="text-sm font-medium text-accent">
-          Personal portfolio project &mdash; Aliyoub
+          Projet personnel &mdash; Aliyoub
         </p>
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-          A DevOps platform, deployed for real on AWS EKS.
+          Une plateforme DevOps, réellement déployée sur AWS EKS.
         </h1>
         <p className="max-w-2xl text-lg text-muted">
-          This application is the working demo behind a full DevOps/Cloud
-          platform: infrastructure as code, a containerized service running
-          on Kubernetes, an automated CI/CD pipeline, security hardening and
-          observability &mdash; not a tutorial, a system that was actually run.
+          Cette application est la démo réelle derrière une plateforme
+          DevOps/Cloud complète : infrastructure as code, un service
+          conteneurisé sur Kubernetes, un pipeline CI/CD automatisé, une
+          sécurité durcie et de l&apos;observabilité &mdash; pas un tutoriel,
+          un système qui a vraiment tourné.
         </p>
         <div className="flex flex-wrap gap-3 pt-2">
           <Link
             href="/architecture"
             className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
           >
-            View the architecture
+            Voir l&apos;architecture
           </Link>
           <a
             href="https://github.com/Aliyoub/devops-platform-aws-eks"
@@ -73,21 +74,22 @@ export default function Home() {
             rel="noreferrer"
             className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-surface-muted"
           >
-            Source on GitHub
+            Code source sur GitHub
           </a>
         </div>
       </section>
 
       <section className="border-t border-border py-14">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-          Why this project
+          Pourquoi ce projet
         </h2>
         <p className="mt-4 max-w-2xl text-base leading-relaxed">
-          Built to demonstrate, with real evidence rather than claims, the
-          ability to design, automate, deploy, secure, observe, diagnose and
-          maintain a cloud platform &mdash; the day-to-day work of a DevOps /
-          Cloud / Platform Engineer, and a practical companion to CKA
-          preparation.
+          Construit pour démontrer, avec des preuves réelles plutôt que des
+          affirmations, la capacité à concevoir, automatiser, déployer,
+          sécuriser, observer, diagnostiquer et maintenir une plateforme
+          cloud &mdash; le travail quotidien d&apos;un DevOps / Cloud /
+          Platform Engineer, et un complément pratique à la préparation du
+          CKA.
         </p>
       </section>
 
@@ -109,7 +111,7 @@ export default function Home() {
 
       <section className="border-t border-border py-14">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-          Skills demonstrated
+          Compétences démontrées
         </h2>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {SKILLS.map((skill) => (

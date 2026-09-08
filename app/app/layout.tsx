@@ -17,13 +17,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "DevOps Platform on AWS EKS",
   description:
-    "A production-style DevOps platform on AWS EKS: Terraform, Docker, Kubernetes, Helm, GitHub Actions (OIDC), Prometheus/Grafana, security hardening, troubleshooting and disaster recovery.",
+    "Une plateforme DevOps de style production sur AWS EKS : Terraform, Docker, Kubernetes, Helm, GitHub Actions (OIDC), Prometheus/Grafana, sécurité, troubleshooting et disaster recovery.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
+      lang="fr"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">

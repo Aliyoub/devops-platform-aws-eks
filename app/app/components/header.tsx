@@ -14,7 +14,7 @@ export default function Header() {
 
         <nav className="flex items-center gap-6 text-sm">
           <Link href="/" className="text-muted transition-colors hover:text-foreground">
-            Home
+            Accueil
           </Link>
           <Link
             href="/architecture"

@@ -8,35 +8,35 @@ const PIPELINE_STEPS = [
   "GitHub",
   "GitHub Actions",
   "Tests / Validation",
-  "Docker Build",
+  "Build Docker",
   "AWS ECR",
   "Terraform",
   "AWS EKS",
   "Kubernetes / Helm",
-  "This application",
+  "Cette application",
   "Monitoring",
 ];
 
 const AWS_LAYERS = [
   {
-    title: "Network",
-    items: ["1 VPC", "Public subnets across 2 availability zones", "Internet Gateway", "Restrictive Security Groups"],
+    title: "Réseau",
+    items: ["1 VPC", "Subnets publics sur 2 zones de disponibilité", "Internet Gateway", "Security Groups restrictifs"],
   },
   {
     title: "Compute",
-    items: ["EKS control plane (AWS managed)", "1 managed node group", "AWS Load Balancer Controller (ALB Ingress)"],
+    items: ["Control plane EKS (managé par AWS)", "1 node group managé", "AWS Load Balancer Controller (Ingress ALB)"],
   },
   {
-    title: "Identity",
+    title: "Identité",
     items: [
-      "IAM roles for the EKS cluster and node group",
-      "IRSA for the application and the Load Balancer Controller",
-      "OIDC trust between GitHub Actions and a scoped IAM role",
+      "Rôles IAM pour le cluster EKS et le node group",
+      "IRSA pour l'application et le Load Balancer Controller",
+      "Confiance OIDC entre GitHub Actions et un rôle IAM scopé",
     ],
   },
   {
-    title: "Registry",
-    items: ["1 ECR repository, images tagged by commit SHA, no reliance on latest"],
+    title: "Registre",
+    items: ["1 repository ECR, images taguées par SHA de commit, jamais uniquement latest"],
   },
 ];
 
@@ -45,17 +45,18 @@ export default function ArchitecturePage() {
     <div className="mx-auto max-w-5xl px-6 py-16">
       <p className="text-sm font-medium text-accent">Architecture</p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-        From a git push to a running, observed service
+        D&apos;un git push à un service déployé et observé
       </h1>
       <p className="mt-4 max-w-2xl text-muted">
-        The platform favors a small set of coherent, production-representative
-        components over an exhaustive tool list. Every box below is a real
-        piece of this deployment, not an aspirational diagram.
+        La plateforme privilégie un petit nombre de composants cohérents,
+        représentatifs d&apos;un usage de production, plutôt qu&apos;une liste
+        exhaustive d&apos;outils. Chaque étape ci-dessous est un élément réel
+        de ce déploiement, pas un schéma aspirationnel.
       </p>
 
       <section className="mt-12">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-          Delivery pipeline
+          Chaîne de livraison
         </h2>
         <div className="mt-5 flex flex-wrap items-center gap-2">
           {PIPELINE_STEPS.map((step, index) => (
@@ -73,7 +74,7 @@ export default function ArchitecturePage() {
 
       <section className="mt-14">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-          AWS layout (low-cost profile)
+          Architecture AWS (profil low-cost)
         </h2>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           {AWS_LAYERS.map((layer) => (
@@ -88,10 +89,11 @@ export default function ArchitecturePage() {
           ))}
         </div>
         <p className="mt-5 text-sm text-muted">
-          No NAT Gateway: the cluster runs in public subnets with restrictive
-          Security Groups to keep costs near zero when the infrastructure is
-          destroyed between work sessions. Full diagrams and the reasoning
-          behind this trade-off are documented in the repository README.
+          Pas de NAT Gateway : le cluster tourne dans des subnets publics avec
+          des Security Groups restrictifs, pour garder un coût proche de zéro
+          lorsque l&apos;infrastructure est détruite entre les sessions de
+          travail. Les diagrammes complets et le raisonnement derrière ce
+          compromis sont documentés dans le README du repository.
         </p>
       </section>
     </div>

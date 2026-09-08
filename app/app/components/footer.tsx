@@ -4,8 +4,8 @@ export default function Footer() {
       <div className="mx-auto flex max-w-5xl flex-col gap-2 px-6 py-8 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
         <p>DevOps Platform &mdash; Aliyoub</p>
         <p>
-          Built with Next.js, Terraform, Docker, Kubernetes, Helm, GitHub
-          Actions, Prometheus and Grafana.
+          Construit avec Next.js, Terraform, Docker, Kubernetes, Helm, GitHub
+          Actions, Prometheus et Grafana.
         </p>
       </div>
     </footer>
