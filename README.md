@@ -196,6 +196,15 @@ et `aws ec2 describe-security-groups` pour confirmer l'absence de règle
 entrante depuis `0.0.0.0/0`. Coût : ~0,14 $/heure pendant que le cluster
 tourne (control plane + nœud), détruit après chaque session de travail.
 
+**Cluster dans la console AWS.**
+
+![Cluster EKS et son node group dans la console AWS](docs/screenshots/phase5-eks-cluster-nodes.png)
+
+**Résultat attendu :** cluster `devops-platform-aws-eks-dev` actif,
+Kubernetes 1.36, un nœud `t3.medium` géré par le node group
+`devops-platform-aws-eks-dev-nodes`, statut `Prêt` — identique à `kubectl
+get nodes`.
+
 ---
 
 ## Développement local
