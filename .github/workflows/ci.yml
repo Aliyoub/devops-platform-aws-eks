@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: Application (lint, tests, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: app/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+
+  docker:
+    name: Image Docker (build de validation, sans push)
+    runs-on: ubuntu-latest
+    needs: app
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: false
+          tags: devops-platform-aws-eks:ci
+
+  terraform:
+    name: Terraform (fmt, validate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: check
+        shell: bash
+        run: |
+          if compgen -G "terraform/*.tf" > /dev/null; then
+            echo "has_files=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_files=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: hashicorp/setup-terraform@v4
+        if: steps.check.outputs.has_files == 'true'
+
+      - name: terraform fmt -check
+        if: steps.check.outputs.has_files == 'true'
+        working-directory: terraform
+        run: terraform fmt -check -recursive
+
+      - name: terraform init (sans backend, pour validate uniquement)
+        if: steps.check.outputs.has_files == 'true'
+        working-directory: terraform
+        run: terraform init -backend=false
+
+      - name: terraform validate
+        if: steps.check.outputs.has_files == 'true'
+        working-directory: terraform
+        run: terraform validate
+
+      - name: rien a valider pour le moment
+        if: steps.check.outputs.has_files == 'false'
+        run: echo "Aucun fichier .tf pour le moment (arrivera en Phase 3) - etape ignoree."
+
+  helm:
+    name: Helm lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: check
+        shell: bash
+        run: |
+          if [ -f helm/myapp/Chart.yaml ]; then
+            echo "has_chart=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_chart=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: azure/setup-helm@v5
+        if: steps.check.outputs.has_chart == 'true'
+
+      - name: helm lint
+        if: steps.check.outputs.has_chart == 'true'
+        run: helm lint helm/myapp
+
+      - name: rien a linter pour le moment
+        if: steps.check.outputs.has_chart == 'false'
+        run: echo "Aucun chart Helm pour le moment (arrivera en Phase 6) - etape ignoree."
