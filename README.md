@@ -62,7 +62,7 @@ troubleshooting réel, disaster recovery adapté à un Kubernetes managé.
 | 4 | ECR + IAM + OIDC GitHub Actions | Fait |
 | 5 | Cluster EKS + node group | Fait |
 | 6 | Helm chart + AWS Load Balancer Controller | Fait |
-| 7 | Pipeline CD (déploiement automatisé) | Prévu |
+| 7 | Pipeline CD (déploiement automatisé) | Fait |
 | 8 | Observabilité (Prometheus/Grafana) | Prévu |
 | 9 | Durcissement sécurité (RBAC, NetworkPolicy, PSA, Trivy) | Prévu |
 | 10 | Scénarios de troubleshooting réellement reproduits | Prévu |
@@ -252,6 +252,34 @@ ressource manuelle.
 
 Coût additionnel de cette phase : ALB ~0,0225 $/heure + facturation LCU
 (usage), en plus du cluster déjà compté en Phase 5.
+
+### Pipeline CD (`.github/workflows/cd.yml`)
+
+Se déclenche sur push vers `main` touchant `app/`, `docker/` ou `helm/`
+(ou manuellement via `workflow_dispatch`). Construit l'image, la pousse sur
+ECR taguée avec le SHA du commit, déploie via `helm upgrade --install`, puis
+un vrai smoke test interroge `/health` à travers l'ALB jusqu'à recevoir un
+`200`. Authentifié à AWS uniquement par OIDC (le même rôle IAM que pour
+ECR, avec des permissions étendues de façon incrémentale : `eks:DescribeCluster`
+et un accès EKS scopé au seul namespace `default` — pas cluster-admin).
+
+Volontairement, `cd.yml` ne fait **aucun** `terraform apply` : un pipeline
+non surveillé qui provisionnerait de l'infrastructure payante à chaque push
+contournerait la règle de ce projet consistant à toujours signaler le coût
+avant de créer une ressource facturable. `cd.yml` déploie l'application sur
+un cluster qui existe déjà.
+
+**Bug réel rencontré et corrigé** : le premier run a échoué sur
+`sts:AssumeRoleWithWebIdentity` malgré une trust policy suivant exactement
+le format documenté par GitHub. Diagnostiqué en décodant le vrai jeton
+OIDC émis (pas en supposant) : ce compte GitHub émet des jetons au format
+*immutable subject claim* (`repo:<owner>@<user_id>/<repo>@<repo_id>:ref:...`),
+différent du format classique attendu — et l'API GitHub censée indiquer ce
+réglage (`.../actions/oidc/customization/sub`) répondait `false` de façon
+trompeuse. Détail complet dans `terraform/README.md`.
+
+**Run réel réussi**, déployant l'image du commit qui a introduit ce
+correctif : https://github.com/Aliyoub/devops-platform-aws-eks/actions/runs/34393943314
 
 ---
 

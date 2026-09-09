@@ -15,7 +15,7 @@ vpc.tf         # VPC, subnets, Internet Gateway, table de routage (Phase 3)
 ecr.tf         # Repository ECR + lifecycle policy (Phase 4)
 oidc.tf        # Fournisseur OIDC GitHub Actions + rôle IAM assumable (Phase 4)
 iam.tf         # Politiques IAM attachées aux rôles du projet (Phase 4+)
-eks.tf         # Cluster EKS, node group, accès admin, metrics-server (Phase 5-6)
+eks.tf         # Cluster EKS, node group, accès admin/CD, metrics-server (Phase 5-7)
 security-groups.tf  # Durcissement du security group par défaut du VPC (Phase 5)
 load-balancer-controller.tf  # IRSA pour l'AWS Load Balancer Controller (Phase 6)
 policies/      # Documents IAM trop volumineux pour être inline (Phase 6)
@@ -108,6 +108,45 @@ policies/      # Documents IAM trop volumineux pour être inline (Phase 6)
   `HorizontalPodAutoscaler` créé par le chart Helm de l'app resterait
   décoratif (métriques `<unknown>`, jamais de scaling réel). Add-on géré
   par AWS, gratuit.
+- **Accès EKS de la CD limité au namespace `default`** (`AmazonEKSEditPolicy`
+  scopé, pas `AmazonEKSClusterAdminPolicy`) : le rôle GitHub Actions
+  (`oidc.tf`) ne doit gérer que les ressources applicatives de son propre
+  namespace, jamais le control plane, le node group ou les composants de
+  plateforme installés à part (contrôleur ALB, metrics-server).
+- **`cd.yml` ne fait jamais `terraform apply`** : un pipeline non surveillé
+  qui provisionnerait automatiquement des ressources payantes (EKS, ALB) à
+  chaque push contournerait la règle "informer du coût avant toute création
+  payante" suivie dans ce projet. Le provisioning de l'infrastructure reste
+  une étape manuelle et délibérée ; `cd.yml` ne fait que déployer
+  l'application sur un cluster qui existe déjà.
+
+### Bug réel rencontré : format du `sub` claim OIDC GitHub
+
+Le premier run réel de `cd.yml` a échoué sur *chaque* tentative avec
+`Not authorized to perform sts:AssumeRoleWithWebIdentity`, alors que la
+trust policy suivait exactement le format documenté par GitHub et AWS
+(`repo:<owner>/<repo>:ref:refs/heads/<branch>`).
+
+Plutôt que de deviner, un job de debug temporaire a décodé le vrai jeton
+OIDC émis par GitHub pour ce run (`ACTIONS_ID_TOKEN_REQUEST_TOKEN`/`_URL`,
+partie payload en base64). Le `sub` réel était :
+
+```
+repo:Aliyoub@25158336/devops-platform-aws-eks@1361862012:ref:refs/heads/main
+```
+
+— le format **"immutable subject claim"** (avec les IDs numériques du
+compte et du repository), pas le format classique attendu. Point piégeux
+supplémentaire : l'API `GET /repos/{owner}/{repo}/actions/oidc/customization/sub`
+répond `"use_immutable_subject": false` pour ce repository, ce qui laissait
+penser que le format classique était actif — alors que le jeton réellement
+émis utilisait bien le format immutable. Décoder le jeton réel a été le
+seul moyen fiable de trancher.
+
+Corrigé en alignant la condition `sub` de la trust policy sur ce format
+exact. Un bon rappel que pour l'authentification, il faut vérifier ce qui
+est réellement émis plutôt que ce que la documentation ou une API annexe
+prétend.
 
 ## Commandes
 
