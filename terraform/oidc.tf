@@ -38,10 +38,19 @@ data "aws_iam_policy_document" "github_actions_assume_role" {
     # ouverte depuis ce repo) ne matche pas ce sub claim et ne peut donc
     # jamais obtenir de credentials AWS - cohérent avec ci.yml qui ne
     # touche jamais l'AWS réel.
+    #
+    # Format "immutable subject claim" (repo:<owner>@<user_id>/<repo>@<repo_id>:...)
+    # et non le format classique repo:<owner>/<repo>:... documenté par
+    # défaut dans la doc GitHub/AWS - découvert en décodant réellement le
+    # token OIDC émis par ce compte (un job de debug temporaire l'a
+    # affiché), pas en supposant le format par défaut. Le endpoint
+    # `GET /repos/{owner}/{repo}/actions/oidc/customization/sub` reste
+    # trompeur ici : il répond `use_immutable_subject: false` alors que le
+    # token réellement émis utilise bien ce format.
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:Aliyoub/devops-platform-aws-eks:ref:refs/heads/main"]
+      values   = ["repo:Aliyoub@25158336/devops-platform-aws-eks@1361862012:ref:refs/heads/main"]
     }
   }
 }
