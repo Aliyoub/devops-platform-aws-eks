@@ -1,0 +1,90 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "docker/**"
+      - "helm/**"
+      - ".github/workflows/cd.yml"
+  workflow_dispatch: {}
+
+# id-token: write est requis pour l'authentification OIDC vers AWS - aucune
+# clé statique n'est stockée dans ce repository.
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  # Doit correspondre a "${project_name}-${environment}" dans
+  # terraform/variables.tf (defauts : devops-platform-aws-eks / dev).
+  CLUSTER_NAME: devops-platform-aws-eks-dev
+  ECR_REPOSITORY: devops-platform-aws-eks-dev
+
+jobs:
+  deploy:
+    name: Build, push, deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Ne fait volontairement AUCUN terraform apply : cd.yml déploie
+      # l'application sur un cluster qui existe déjà (provisionné à la main,
+      # avec chiffrage du coût donné avant coup). Un cd.yml qui créerait
+      # l'infra automatiquement à chaque push contournerait le principe
+      # "toujours informer du coût avant de créer une ressource payante".
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::510468338445:role/devops-platform-aws-eks-dev-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -f docker/Dockerfile \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+      - uses: azure/setup-helm@v5
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$AWS_REGION"
+
+      - name: Deploy with Helm
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          helm upgrade --install myapp helm/myapp \
+            -f helm/myapp/values-dev.yaml \
+            --set image.repository="$ECR_REGISTRY/$ECR_REPOSITORY" \
+            --set image.tag="$IMAGE_TAG" \
+            --wait --timeout 5m
+
+      - name: Smoke test via l'ALB reel
+        run: |
+          HOST=$(kubectl get ingress myapp -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          echo "Ingress host: $HOST"
+          for i in $(seq 1 18); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://$HOST/health" || true)
+            echo "tentative $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Smoke test en echec : /health n'a jamais repondu 200"
+          exit 1

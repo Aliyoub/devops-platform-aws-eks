@@ -84,6 +84,29 @@ resource "aws_eks_access_policy_association" "admin" {
   }
 }
 
+# Accès pour le pipeline CD (GitHub Actions, Phase 7) : uniquement
+# AmazonEKSEditPolicy scopé au namespace "default", où vit l'application.
+# Pas d'accès cluster-admin pour la CD - elle n'a besoin de gérer que les
+# ressources applicatives de son propre namespace, jamais le control plane,
+# le node group ou les composants de plateforme (contrôleur ALB,
+# metrics-server) installés à part.
+resource "aws_eks_access_entry" "github_actions" {
+  cluster_name  = aws_eks_cluster.main.name
+  principal_arn = aws_iam_role.github_actions.arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "github_actions" {
+  cluster_name  = aws_eks_cluster.main.name
+  principal_arn = aws_eks_access_entry.github_actions.principal_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy"
+
+  access_scope {
+    type       = "namespace"
+    namespaces = ["default"]
+  }
+}
+
 # --- Rôle IAM du node group ---
 
 resource "aws_iam_role" "eks_nodes" {

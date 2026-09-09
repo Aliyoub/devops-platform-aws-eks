@@ -42,3 +42,26 @@ resource "aws_iam_role_policy_attachment" "github_actions_ecr_push" {
   role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.github_actions_ecr_push.arn
 }
+
+# Phase 7 (cd.yml) : uniquement de quoi récupérer les infos du cluster pour
+# générer un kubeconfig (`aws eks update-kubeconfig`). L'autorisation
+# d'agir une fois connecté vient de l'access entry EKS (eks.tf), pas d'IAM.
+data "aws_iam_policy_document" "github_actions_eks_describe" {
+  statement {
+    sid       = "EKSDescribe"
+    effect    = "Allow"
+    actions   = ["eks:DescribeCluster"]
+    resources = [aws_eks_cluster.main.arn]
+  }
+}
+
+resource "aws_iam_policy" "github_actions_eks_describe" {
+  name        = "${local.name_prefix}-github-actions-eks-describe"
+  description = "Permet a GitHub Actions de recuperer les infos du cluster EKS pour generer un kubeconfig."
+  policy      = data.aws_iam_policy_document.github_actions_eks_describe.json
+}
+
+resource "aws_iam_role_policy_attachment" "github_actions_eks_describe" {
+  role       = aws_iam_role.github_actions.name
+  policy_arn = aws_iam_policy.github_actions_eks_describe.arn
+}
