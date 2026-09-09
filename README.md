@@ -59,7 +59,7 @@ troubleshooting réel, disaster recovery adapté à un Kubernetes managé.
 | 1 | Application Next.js + image Docker | Fait |
 | 2 | Pipeline CI GitHub Actions | Fait |
 | 3 | VPC AWS (Terraform) | Fait |
-| 4 | ECR + IAM + OIDC GitHub Actions | Prévu |
+| 4 | ECR + IAM + OIDC GitHub Actions | Fait |
 | 5 | Cluster EKS + node group | Prévu |
 | 6 | Helm chart + AWS Load Balancer Controller | Prévu |
 | 7 | Pipeline CD (déploiement automatisé) | Prévu |
@@ -141,6 +141,42 @@ de routage. Appliqué réellement via `terraform apply` puis vérifié de
 façon indépendante avec `aws ec2 describe-vpcs`/`describe-subnets` (pas
 seulement l'état Terraform). Coût : 0 $ (aucune ressource payante dans ce
 lot).
+
+**VPC dans la console AWS.** Vue détail du VPC créé par Terraform.
+
+![Détail du VPC dans la console AWS](docs/screenshots/phase3-vpc-detail.png)
+
+**Résultat attendu :** VPC `vpc-04c11dd0c8009aa68`, CIDR `10.20.0.0/16`,
+état `Available` — identique à la sortie de `terraform apply` et à
+`aws ec2 describe-vpcs`.
+
+### ECR + OIDC GitHub Actions (`terraform/`)
+
+Repository ECR (tags immuables, scan à la publication, lifecycle policy),
+fournisseur OIDC et rôle IAM que GitHub Actions pourra assumer sans clé
+statique (scopé au repo et à la branche `main` via le `sub` claim).
+Permissions accordées de façon incrémentale : uniquement le push ECR pour
+l'instant. Appliqué réellement, vérifié indépendamment via `aws ecr
+describe-repositories`, `aws iam list-open-id-connect-providers` et `aws
+iam get-role`. Premier push d'image manuel réussi et vérifié via `aws ecr
+describe-images`. Coût : stockage de l'image seul, environ 0,01 $/mois.
+
+**Image poussée sur ECR, scan de vulnérabilités inclus.**
+
+![Détail de l'image dans ECR, scan terminé](docs/screenshots/phase4-ecr-image-scan.png)
+
+**Résultat attendu :** tag `c0f7001`, 82,05 Mo, digest identique à celui
+renvoyé par `docker push`, scan de vulnérabilités "Terminé".
+
+**Trust policy du rôle IAM GitHub Actions.** Scope volontairement strict :
+seule la branche `main` de ce repository exact peut assumer ce rôle.
+
+![Trust relationship du rôle IAM OIDC](docs/screenshots/phase4-iam-oidc-trust-policy.png)
+
+**Résultat attendu :** `Federated` principal pointant vers le fournisseur
+OIDC GitHub, condition `token.actions.githubusercontent.com:sub` égale à
+`repo:Aliyoub/devops-platform-aws-eks:ref:refs/heads/main` — identique au
+`terraform plan` de `oidc.tf`.
 
 ---
 
