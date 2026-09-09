@@ -281,6 +281,16 @@ trompeuse. Détail complet dans `terraform/README.md`.
 **Run réel réussi**, déployant l'image du commit qui a introduit ce
 correctif : https://github.com/Aliyoub/devops-platform-aws-eks/actions/runs/34393943314
 
+**Moindre privilège appliqué à la CD, des deux côtés (IAM et Kubernetes) :**
+
+![Les 2 policies IAM du rôle GitHub Actions](docs/screenshots/phase7-iam-role-policies.png)
+
+![Scope de l'access entry EKS, limité au namespace default](docs/screenshots/phase7-eks-access-entry-scope.png)
+
+**Résultat attendu :** côté IAM, seulement 2 policies (`ecr-push`,
+`eks-describe`) — rien de plus. Côté EKS, `AmazonEKSEditPolicy` appliquée
+uniquement au namespace `default`, jamais un accès cluster-admin.
+
 ---
 
 ## Développement local
