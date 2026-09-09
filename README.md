@@ -236,6 +236,20 @@ $ curl http://k8s-default-myapp-1ad070390a-2090973047.us-east-1.elb.amazonaws.co
 {"status":"ready","environment":"dev"}
 ```
 
+**Page d'accueil rendue dans un vrai navigateur, via l'ALB public** (pas
+`localhost`, pas de capture inventée) :
+
+![Application accédée via l'URL publique de l'ALB](docs/screenshots/phase6-app-live-via-alb.png)
+
+**ALB créé par l'Ingress**, tags posés automatiquement par l'AWS Load
+Balancer Controller :
+
+![Tags AWS de l'ALB, reliés à l'Ingress de l'application](docs/screenshots/phase6-alb-tags.png)
+
+**Résultat attendu :** tag `ingress.k8s.aws/stack = default/myapp` —
+confirme que cet ALB a bien été provisionné par notre Ingress, pas une
+ressource manuelle.
+
 Coût additionnel de cette phase : ALB ~0,0225 $/heure + facturation LCU
 (usage), en plus du cluster déjà compté en Phase 5.
 
