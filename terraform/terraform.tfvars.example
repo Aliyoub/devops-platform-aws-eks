@@ -1,0 +1,7 @@
+# Copier ce fichier en terraform.tfvars (gitignored) et ajuster si besoin.
+# Aucune de ces valeurs n'est un secret ; terraform.tfvars reste gitignored
+# par convention pour permettre des surcharges locales sans les committer.
+
+aws_region   = "us-east-1"
+project_name = "devops-platform-aws-eks"
+environment  = "dev"

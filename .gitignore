@@ -17,7 +17,6 @@ terraform/.terraform/
 terraform/*.tfstate
 terraform/*.tfstate.*
 terraform/*.tfplan
-terraform/.terraform.lock.hcl
 terraform/terraform.tfvars
 !terraform/terraform.tfvars.example
 crash.log
