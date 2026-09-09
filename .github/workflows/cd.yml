@@ -34,6 +34,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: DEBUG - decode OIDC token claims
+        run: |
+          TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
+          echo "$TOKEN" | cut -d '.' -f2 | base64 -d 2>/dev/null | jq '{sub, aud, repository, ref, repository_owner}'
+
       # Ne fait volontairement AUCUN terraform apply : cd.yml déploie
       # l'application sur un cluster qui existe déjà (provisionné à la main,
       # avec chiffrage du coût donné avant coup). Un cd.yml qui créerait
