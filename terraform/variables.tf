@@ -27,3 +27,15 @@ variable "public_subnet_cidrs" {
   type        = list(string)
   default     = ["10.20.1.0/24", "10.20.2.0/24"]
 }
+
+variable "eks_node_instance_types" {
+  description = "Types d'instance EC2 du node group EKS."
+  type        = list(string)
+  default     = ["t3.medium"]
+}
+
+variable "eks_node_desired_size" {
+  description = "Nombre de nœuds du node group (taille fixe : desired = min = max, pas d'autoscaling de nœuds pour ce projet)."
+  type        = number
+  default     = 1
+}

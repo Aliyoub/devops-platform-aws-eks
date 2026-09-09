@@ -15,10 +15,9 @@ vpc.tf         # VPC, subnets, Internet Gateway, table de routage (Phase 3)
 ecr.tf         # Repository ECR + lifecycle policy (Phase 4)
 oidc.tf        # Fournisseur OIDC GitHub Actions + rôle IAM assumable (Phase 4)
 iam.tf         # Politiques IAM attachées aux rôles du projet (Phase 4+)
+eks.tf         # Cluster EKS, node group, accès admin (Phase 5)
+security-groups.tf  # Durcissement du security group par défaut du VPC (Phase 5)
 ```
-
-D'autres fichiers arriveront à la Phase 5 : `eks.tf` et
-`security-groups.tf`.
 
 ## Choix effectués
 
@@ -68,6 +67,34 @@ D'autres fichiers arriveront à la Phase 5 : `eks.tf` et
   nécessaires au déploiement complet seront ajoutées aux phases suivantes,
   au fur et à mesure des besoins réels du pipeline — pas données en bloc
   par anticipation.
+- **Aucun security group "control plane"/"nodes" recréé à la main** :
+  vérifié contre la documentation AWS à jour avant d'écrire `eks.tf` —
+  dupliquer ce pattern est une pratique obsolète pour un node group managé.
+  EKS crée et gère un security group unique, self-referencing, appliqué au
+  control plane et aux nœuds ; rien n'y est autorisé en entrée depuis
+  Internet par défaut, même si les nœuds ont une IP publique (confirmé
+  indépendamment via `aws ec2 describe-security-groups` après apply). Le
+  seul durcissement ajouté à la main (`security-groups.tf`) est le security
+  group par défaut du VPC, vidé de toute règle (aligné CIS AWS Foundations
+  Benchmark 5.3).
+- **Aucune version Kubernetes épinglée** dans `aws_eks_cluster` : EKS
+  déprécie une version tous les ~14 mois environ, épingler un numéro figé
+  ici risquerait un apply en échec plus tard sur une version qui ne serait
+  plus supportée. La version réellement déployée est exposée via l'output
+  `eks_cluster_version`.
+- **`authentication_mode = "API"`** (Access Entries) plutôt que l'ancien
+  `aws-auth` ConfigMap : plus simple à gérer entièrement en Terraform, sans
+  provider Kubernetes additionnel. Un access entry dédié donne un accès
+  admin à l'utilisateur IAM qui applique ce Terraform — sans lui, même le
+  créateur du cluster n'aurait pas accès à l'API.
+- **Endpoint API public, non restreint par IP** : la CD (Phase 7) déploiera
+  depuis des runners GitHub Actions hébergés dont les IP changent en
+  permanence, donc une whitelist par IP casserait le pipeline. La véritable
+  frontière de sécurité est IAM (Access Entries), pas le réseau.
+- **1 seul nœud `t3.medium`, taille fixe, `ON_DEMAND`** : voir le
+  raisonnement complet dans `eks.tf` (pas de Spot avec un nœud unique sans
+  redondance, capacité suffisante pour héberger l'app et l'observabilité à
+  venir sur un seul nœud plutôt que de recréer le cluster à chaque phase).
 
 ## Commandes
 
@@ -80,4 +107,9 @@ terraform validate
 terraform plan
 terraform apply
 terraform destroy   # à faire entre chaque session de travail
+
+# Une fois le cluster créé, configurer kubectl (fichier dédié, ne touche
+# jamais un ~/.kube/config existant) :
+../scripts/get-kubeconfig.sh
+KUBECONFIG=~/.kube/devops-platform-aws-eks.yaml kubectl get nodes
 ```

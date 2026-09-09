@@ -60,7 +60,7 @@ troubleshooting réel, disaster recovery adapté à un Kubernetes managé.
 | 2 | Pipeline CI GitHub Actions | Fait |
 | 3 | VPC AWS (Terraform) | Fait |
 | 4 | ECR + IAM + OIDC GitHub Actions | Fait |
-| 5 | Cluster EKS + node group | Prévu |
+| 5 | Cluster EKS + node group | Fait |
 | 6 | Helm chart + AWS Load Balancer Controller | Prévu |
 | 7 | Pipeline CD (déploiement automatisé) | Prévu |
 | 8 | Observabilité (Prometheus/Grafana) | Prévu |
@@ -178,6 +178,24 @@ OIDC GitHub, condition `token.actions.githubusercontent.com:sub` égale à
 `repo:Aliyoub/devops-platform-aws-eks:ref:refs/heads/main` — identique au
 `terraform plan` de `oidc.tf`.
 
+### Cluster EKS + node group (`terraform/`)
+
+Control plane EKS (Kubernetes 1.36, version non épinglée — voir
+`terraform/README.md`), 1 node group managé (1 nœud `t3.medium`,
+`ON_DEMAND`), accès admin via Access Entries (pas d'ancien `aws-auth`
+ConfigMap). Aucun security group personnalisé pour le control plane/les
+nœuds : vérifié contre la documentation AWS que le security group
+auto-géré par EKS (self-referencing, aucune entrée depuis Internet même
+avec des IP publiques faute de NAT) suffit et remplace un pattern devenu
+obsolète pour un node group managé. Seul le security group par défaut du
+VPC est durci à la main (vidé de toute règle).
+
+Appliqué réellement, vérifié indépendamment : `kubectl get nodes` (nœud
+`Ready`), `kubectl get pods -A` (CNI, CoreDNS, kube-proxy tous `Running`),
+et `aws ec2 describe-security-groups` pour confirmer l'absence de règle
+entrante depuis `0.0.0.0/0`. Coût : ~0,14 $/heure pendant que le cluster
+tourne (control plane + nœud), détruit après chaque session de travail.
+
 ---
 
 ## Développement local
@@ -200,6 +218,10 @@ docker run --rm -p 3000:3000 -e APP_ENV=local devops-platform-aws-eks:local
 cd terraform
 terraform init
 terraform plan
+terraform apply
+
+./scripts/get-kubeconfig.sh
+KUBECONFIG=~/.kube/devops-platform-aws-eks.yaml kubectl get nodes
 ```
 
 ---
