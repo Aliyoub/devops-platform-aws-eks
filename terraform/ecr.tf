@@ -11,6 +11,14 @@ resource "aws_ecr_repository" "app" {
     scan_on_push = true
   }
 
+  # L'infrastructure est détruite et recréée entre chaque session de
+  # travail (stratégie low-cost, voir README) : sans force_delete, un
+  # `terraform destroy` échoue dès qu'une image a été poussée dans le
+  # repository, ce qui casserait ce cycle à chaque fois. Pas un risque
+  # réel de perte de données ici : les images sont reconstruites à chaque
+  # session, jamais une source de vérité à préserver.
+  force_delete = true
+
   tags = {
     Name = "${local.name_prefix}-ecr"
   }
