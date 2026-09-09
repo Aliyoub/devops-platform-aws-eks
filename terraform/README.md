@@ -15,8 +15,10 @@ vpc.tf         # VPC, subnets, Internet Gateway, table de routage (Phase 3)
 ecr.tf         # Repository ECR + lifecycle policy (Phase 4)
 oidc.tf        # Fournisseur OIDC GitHub Actions + rôle IAM assumable (Phase 4)
 iam.tf         # Politiques IAM attachées aux rôles du projet (Phase 4+)
-eks.tf         # Cluster EKS, node group, accès admin (Phase 5)
+eks.tf         # Cluster EKS, node group, accès admin, metrics-server (Phase 5-6)
 security-groups.tf  # Durcissement du security group par défaut du VPC (Phase 5)
+load-balancer-controller.tf  # IRSA pour l'AWS Load Balancer Controller (Phase 6)
+policies/      # Documents IAM trop volumineux pour être inline (Phase 6)
 ```
 
 ## Choix effectués
@@ -95,6 +97,17 @@ security-groups.tf  # Durcissement du security group par défaut du VPC (Phase 5
   raisonnement complet dans `eks.tf` (pas de Spot avec un nœud unique sans
   redondance, capacité suffisante pour héberger l'app et l'observabilité à
   venir sur un seul nœud plutôt que de recréer le cluster à chaque phase).
+- **IRSA distinct pour l'AWS Load Balancer Controller** (`load-balancer-controller.tf`) :
+  contrairement au fournisseur OIDC de GitHub Actions, celui du cluster EKS
+  n'est pas dans la liste des fournisseurs "connus" validés nativement par
+  AWS - `thumbprint_list` reste obligatoire ici, calculé dynamiquement via
+  `data "tls_certificate"` plutôt que codé en dur. La policy IAM est celle
+  publiée par le projet upstream (`policies/`, v3.5.0), copiée telle quelle
+  plutôt que réécrite à la main pour éviter d'oublier une permission.
+- **Add-on `metrics-server`** ajouté explicitement : sans lui, un
+  `HorizontalPodAutoscaler` créé par le chart Helm de l'app resterait
+  décoratif (métriques `<unknown>`, jamais de scaling réel). Add-on géré
+  par AWS, gratuit.
 
 ## Commandes
 

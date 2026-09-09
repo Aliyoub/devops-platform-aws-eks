@@ -57,3 +57,8 @@ output "eks_node_group_status" {
   description = "Statut du node group managé."
   value       = aws_eks_node_group.main.status
 }
+
+output "alb_controller_role_arn" {
+  description = "ARN du rôle IAM (IRSA) pour l'AWS Load Balancer Controller."
+  value       = aws_iam_role.alb_controller.arn
+}

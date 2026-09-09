@@ -1,0 +1,15 @@
+# Surcharges pour l'environnement dev - c'est ce qui est réellement déployé
+# dans ce projet (voir helm/README.md).
+
+env:
+  APP_ENV: dev
+
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: myapp
+description: Chart Helm pour l'application de démonstration de la plateforme DevOps (Next.js sur EKS, exposée via un ALB).
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

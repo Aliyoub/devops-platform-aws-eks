@@ -153,3 +153,16 @@ resource "aws_eks_node_group" "main" {
     aws_eks_access_policy_association.admin,
   ]
 }
+
+# metrics-server : sans lui, un HorizontalPodAutoscaler créé plus tard
+# (helm/myapp) resterait "décoratif" - il existerait mais afficherait
+# <unknown> pour les métriques CPU et ne scalerait jamais réellement.
+# Add-on géré par AWS (gratuit, un seul petit pod), plutôt qu'un Helm chart
+# tiers à maintenir soi-même.
+resource "aws_eks_addon" "metrics_server" {
+  cluster_name  = aws_eks_cluster.main.name
+  addon_name    = "metrics-server"
+  addon_version = "v0.9.0-eksbuild.9"
+
+  depends_on = [aws_eks_node_group.main]
+}

@@ -61,7 +61,7 @@ troubleshooting réel, disaster recovery adapté à un Kubernetes managé.
 | 3 | VPC AWS (Terraform) | Fait |
 | 4 | ECR + IAM + OIDC GitHub Actions | Fait |
 | 5 | Cluster EKS + node group | Fait |
-| 6 | Helm chart + AWS Load Balancer Controller | Prévu |
+| 6 | Helm chart + AWS Load Balancer Controller | Fait |
 | 7 | Pipeline CD (déploiement automatisé) | Prévu |
 | 8 | Observabilité (Prometheus/Grafana) | Prévu |
 | 9 | Durcissement sécurité (RBAC, NetworkPolicy, PSA, Trivy) | Prévu |
@@ -204,6 +204,40 @@ tourne (control plane + nœud), détruit après chaque session de travail.
 Kubernetes 1.36, un nœud `t3.medium` géré par le node group
 `devops-platform-aws-eks-dev-nodes`, statut `Prêt` — identique à `kubectl
 get nodes`.
+
+### Chart Helm de l'application + AWS Load Balancer Controller (`helm/`)
+
+AWS Load Balancer Controller v3.5.0 installé via Helm (namespace
+`kube-system`), authentifié à AWS par IRSA (rôle IAM dédié, aucune clé
+statique). Add-on EKS `metrics-server` ajouté pour que le
+`HorizontalPodAutoscaler` de l'application dispose de vraies métriques CPU
+plutôt que d'être décoratif.
+
+Chart `helm/myapp` : Deployment (2 replicas, rolling update sans
+indisponibilité), Service, Ingress `alb` (provisionne un vrai Application
+Load Balancer), ConfigMap, ServiceAccount dédié, HPA (2 à 4 replicas, cible
+CPU 70%), PodDisruptionBudget. Conteneur en `readOnlyRootFilesystem`,
+non-root, toutes les capabilities Linux retirées.
+
+Déployé réellement (`helm install`) et vérifié de bout en bout, pas
+seulement le statut de la commande : `kubectl get pods` (2/2 `Running`),
+l'Ingress réconcilié avec un vrai nom DNS d'ALB, les 4 routes de
+l'application (`/`, `/architecture`, `/health`, `/ready`) répondant `200`
+en HTTP à travers cet ALB public, et le HPA affichant une métrique CPU
+chiffrée (`cpu: 2%/70%`) plutôt que `<unknown>`.
+
+**Application accessible via un vrai ALB, testée en HTTP réel (pas
+`localhost`) :**
+
+```
+$ curl http://k8s-default-myapp-1ad070390a-2090973047.us-east-1.elb.amazonaws.com/health
+{"status":"ok"}
+$ curl http://k8s-default-myapp-1ad070390a-2090973047.us-east-1.elb.amazonaws.com/ready
+{"status":"ready","environment":"dev"}
+```
+
+Coût additionnel de cette phase : ALB ~0,0225 $/heure + facturation LCU
+(usage), en plus du cluster déjà compté en Phase 5.
 
 ---
 

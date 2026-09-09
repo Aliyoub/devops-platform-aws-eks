@@ -1,0 +1,61 @@
+# Valeurs par défaut. Surchargées par values-dev.yaml / values-prod.yaml
+# selon l'environnement (voir helm/README.md pour ce qui est réellement
+# appliqué dans ce projet vs. fourni à titre d'illustration).
+
+replicaCount: 2
+
+image:
+  repository: ""  # fixé via --set ou values-*.yaml (URL du repo ECR)
+  tag: ""          # fixé au déploiement : SHA du commit, jamais "latest" seul
+  pullPolicy: IfNotPresent
+
+env:
+  APP_ENV: dev
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+serviceAccount:
+  create: true
+  annotations: {}
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
