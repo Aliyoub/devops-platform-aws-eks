@@ -317,6 +317,15 @@ retournant des données réelles (pas seulement "le dashboard s'affiche") :
 par exemple `kube_deployment_status_replicas_available{namespace="default",
 deployment="myapp"}` renvoie bien `2`.
 
+**Le dashboard, en vrai, avec des données réelles :**
+
+![Dashboard Grafana personnalisé myapp - Overview](docs/screenshots/phase8-grafana-dashboard.png)
+
+**Résultat attendu :** 2/2 pods disponibles, mémoire par pod ~36-46 MiB,
+CPU du nœud variant entre ~0,1 et ~0,25 cœur — cohérent avec un cluster
+mono-nœud `t3.medium` hébergeant l'app, le contrôleur ALB et le stack de
+monitoring lui-même.
+
 ---
 
 ## Développement local
