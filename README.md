@@ -3,11 +3,24 @@
 ![CI](https://github.com/Aliyoub/devops-platform-aws-eks/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
+![AWS](https://img.shields.io/badge/AWS-EKS-FF9900?logo=amazonaws&logoColor=white)
+![Terraform](https://img.shields.io/badge/Terraform-1.16-844FBA?logo=terraform&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-1.36-326CE5?logo=kubernetes&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-multi--stage-2496ED?logo=docker&logoColor=white)
+![Helm](https://img.shields.io/badge/Helm-3-0F1689?logo=helm&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-CI%2FCD-2088FF?logo=githubactions&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-monitoring-E6522C?logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-dashboards-F46800?logo=grafana&logoColor=white)
+
 Une plateforme DevOps/Cloud déployée sur AWS EKS : Terraform, Docker,
 Kubernetes, Helm, GitHub Actions (OIDC), sécurité, observabilité,
 troubleshooting et disaster recovery.
 
-> **Statut : projet en cours de construction, documenté au fil de l'eau.**
+> **Statut : les 11 premières phases sont terminées et vérifiées
+> réellement (Phases 0 à 11 du plan d'implémentation — infrastructure,
+> CI/CD, sécurité, observabilité, troubleshooting, disaster recovery).
+> Reste la finalisation de la documentation et la revue finale des
+> coûts.**
 > Ce README reflète honnêtement ce qui est réellement fait et vérifié, pas
 > l'objectif final présenté comme acquis. La section
 > [Avancement](#avancement) fait la distinction phase par phase.
@@ -20,8 +33,10 @@ troubleshooting et disaster recovery.
 - [Avancement](#avancement)
 - [Architecture](#architecture)
 - [Ce qui est déjà construit et vérifié](#ce-qui-est-déjà-construit-et-vérifié)
+  (application, Docker, CI/CD, infrastructure AWS, Helm, observabilité,
+  sécurité, troubleshooting, disaster recovery — un vrai bug rencontré et
+  corrigé documenté dans presque chaque partie)
 - [Développement local](#développement-local)
-- [Sécurité, observabilité, troubleshooting, disaster recovery](#sécurité-observabilité-troubleshooting-disaster-recovery)
 - [Coûts AWS](#coûts-aws)
 - [Auteur](#auteur)
 
@@ -107,8 +122,104 @@ Le disaster recovery s'appuie sur Velero plutôt que sur un snapshot/restore
 etcd, techniquement inapplicable sur un control plane EKS managé — le
 raisonnement complet est dans `PLAN.md`.
 
-D'autres diagrammes (architecture AWS détaillée, pipeline CI/CD, sécurité)
-seront ajoutés en Phase 12.
+### Architecture AWS détaillée
+
+```mermaid
+flowchart TB
+    Internet((Internet))
+    IGW[Internet Gateway]
+
+    subgraph VPC["VPC 10.20.0.0/16"]
+        subgraph SubA["Subnet public 10.20.1.0/24 - us-east-1a"]
+            ALBeniA[ALB ENI]
+        end
+        subgraph SubB["Subnet public 10.20.2.0/24 - us-east-1b"]
+            NodeB["Nœud EKS t3.medium\n(pods: myapp, ALB controller,\nmetrics-server, monitoring, Velero)"]
+            ALBeniB[ALB ENI]
+        end
+    end
+
+    subgraph AWSManaged["Géré par AWS, hors VPC client"]
+        EKSCP[Control plane EKS\nAPI Kubernetes]
+        ECR[(ECR)]
+        S3[(S3 - backups Velero)]
+    end
+
+    Internet --> IGW --> ALBeniA & ALBeniB
+    ALBeniA & ALBeniB -->|trafic direct vers les pods\ntarget-type ip| NodeB
+    NodeB -->|kubelet| EKSCP
+    NodeB -->|pull image| ECR
+    NodeB -->|backup/restore objets K8s| S3
+
+    classDef managed fill:#eef1f6,stroke:#8892a6
+    class AWSManaged managed
+```
+
+Un seul nœud dans un seul des deux subnets à la fois (taille fixe, Phase
+5) ; les deux subnets existent pour la disponibilité de l'ALB sur 2 zones,
+même si le node group ne couvre qu'une seule zone à la fois.
+
+### Pipeline CI/CD
+
+```mermaid
+flowchart TB
+    subgraph CI["ci.yml - pull request (jamais d'accès AWS)"]
+        PR[Pull Request] --> App["Lint / Tests / Build\n(Next.js)"]
+        PR --> Docker["Build Docker\n(validation, sans push)"]
+        Docker --> Trivy["Scan Trivy\ngate HIGH/CRITICAL"]
+        PR --> TFV["terraform fmt / validate"]
+        PR --> HelmL["helm lint"]
+    end
+
+    subgraph CD["cd.yml - push sur main"]
+        Push[Push main] --> OIDC["OIDC : assume-role\naucune clé statique"]
+        OIDC --> Build2["Build + push image\ntag = SHA du commit"]
+        Build2 --> ECR2[(AWS ECR)]
+        OIDC --> Deploy["helm upgrade --install\nsur le cluster existant"]
+        Deploy --> Smoke["Smoke test réel\ncurl /health via l'ALB"]
+    end
+
+    Merge{{Merge vers main}}
+    CI -.->|statut requis| Merge
+    Merge --> CD
+
+    Note["cd.yml ne fait jamais\nterraform apply : l'infra\nreste provisionnée à la main,\navec chiffrage du coût"]
+    CD -.- Note
+```
+
+### Architecture sécurité
+
+```mermaid
+flowchart TB
+    subgraph L1["Couche AWS / IAM"]
+        OIDC2["OIDC GitHub Actions\naucune clé statique"]
+        IAMlp["IAM least-privilege\npermissions accordées\nde façon incrémentale"]
+        SG["Security Group EKS\nself-referencing,\naucune entrée depuis Internet"]
+    end
+
+    subgraph L2["Couche Kubernetes"]
+        RBAC["RBAC least-privilege\nServiceAccount myapp :\naucune permission API"]
+        SC["SecurityContext\nnon-root, readOnlyRootFilesystem,\nseccompProfile, capabilities drop ALL"]
+        NP["NetworkPolicy\ndefault-deny + autorisations\nexplicites (ingress ALB, egress DNS)"]
+        PSA["Pod Security Admission\nmode restricted sur default"]
+    end
+
+    subgraph L3["Couche conteneur"]
+        Trivy2["Scan Trivy en CI\ngate HIGH/CRITICAL"]
+        Image["Image minimale\nnpm/npx retirés du runtime"]
+    end
+
+    Attaquant((Tentative\nd'accès non autorisé))
+
+    Attaquant -.->|bloqué| L1
+    Attaquant -.->|bloqué| L2
+    Attaquant -.->|bloqué| L3
+
+    classDef layer fill:#eef1f6,stroke:#8892a6
+    class L1,L2,L3 layer
+```
+
+Sources versionnées de ces 4 diagrammes : `docs/diagrams/*.mmd`.
 
 ---
 
@@ -689,23 +800,32 @@ KUBECONFIG=~/.kube/devops-platform-aws-eks.yaml kubectl get nodes
 
 ---
 
-## Sécurité, observabilité, troubleshooting, disaster recovery
-
-Pas encore implémentés (Phases 9 à 11) — cette section sera complétée avec
-le même niveau de détail que le reste, uniquement une fois chaque élément
-réellement construit et testé. Le raisonnement déjà arrêté pour chacun
-(RBAC/SecurityContext/NetworkPolicy/PSA/Trivy, kube-prometheus-stack,
-Velero) est documenté dans `PLAN.md`.
-
----
-
 ## Coûts AWS
 
-Profil low-cost : pas de NAT Gateway, un seul node EKS, infrastructure
-détruite entre les sessions de travail. Coût engagé à ce jour : **0 $**
-(seules des ressources gratuites existent : VPC, subnets, Internet
-Gateway). Le détail des coûts estimés par ressource (EKS control plane,
-node EC2, ALB...) est dans `PLAN.md`, section coûts.
+Profil low-cost : pas de NAT Gateway, un seul nœud EKS (deux
+temporairement lors du test de résilience, Phase 11), infrastructure
+détruite entre les sessions de travail plutôt que laissée tourner en
+continu.
+
+**Coût réel vérifié via AWS Cost Explorer** (pas une estimation) sur la
+période où l'infrastructure a existé jusqu'ici :
+
+| Service | Coût |
+|---|---|
+| Amazon EKS (control plane) | 0,3827 $ |
+| EC2 (nœud(s)) | 0,1115 $ |
+| Elastic Load Balancing (ALB) | 0,0675 $ |
+| VPC | 0,0393 $ |
+| S3 (backups Velero) + divers | ~0,002 $ |
+| **Total vérifié** | **~0,61 $** |
+
+Ce chiffre ne couvre pas encore les dernières heures de travail (Phases
+8-11) : les données de facturation AWS ont un délai d'environ 24h avant
+d'apparaître dans Cost Explorer. Le total final sera confirmé en Phase 13,
+une fois toutes les données disponibles — mais l'ordre de grandeur réel du
+projet complet restera de quelques dollars, très loin des ~150-160 $/mois
+qu'un profil "prod-like" tournant en continu aurait coûté (détail dans
+`PLAN.md`, section coûts).
 
 ---
 

@@ -1,0 +1,13 @@
+flowchart LR
+    GH[GitHub] --> GA[GitHub Actions]
+    GA -->|CI| T[Tests / Lint / Validate]
+    GA -->|CD| D[Docker Build]
+    D --> ECR[AWS ECR]
+    GA -->|OIDC| TF[Terraform]
+    TF --> VPC[AWS VPC]
+    VPC --> EKS[AWS EKS]
+    ECR --> EKS
+    EKS --> K8S[Kubernetes / Helm]
+    K8S --> APP[Application]
+    K8S --> MON[Prometheus / Grafana]
+    K8S --> SEC[Sécurité : RBAC / NetworkPolicy / PSA]

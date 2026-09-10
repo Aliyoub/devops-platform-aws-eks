@@ -1,0 +1,23 @@
+flowchart TB
+    subgraph CI["ci.yml - pull request (jamais d'accès AWS)"]
+        PR[Pull Request] --> App["Lint / Tests / Build\n(Next.js)"]
+        PR --> Docker["Build Docker\n(validation, sans push)"]
+        Docker --> Trivy["Scan Trivy\ngate HIGH/CRITICAL"]
+        PR --> TFV["terraform fmt / validate"]
+        PR --> HelmL["helm lint"]
+    end
+
+    subgraph CD["cd.yml - push sur main"]
+        Push[Push main] --> OIDC["OIDC : assume-role\naucune clé statique"]
+        OIDC --> Build2["Build + push image\ntag = SHA du commit"]
+        Build2 --> ECR2[(AWS ECR)]
+        OIDC --> Deploy["helm upgrade --install\nsur le cluster existant"]
+        Deploy --> Smoke["Smoke test réel\ncurl /health via l'ALB"]
+    end
+
+    Merge{{Merge vers main}}
+    CI -.->|statut requis| Merge
+    Merge --> CD
+
+    Note["cd.yml ne fait jamais\nterraform apply : l'infra\nreste provisionnée à la main,\navec chiffrage du coût"]
+    CD -.- Note

@@ -1,0 +1,27 @@
+flowchart TB
+    subgraph L1["Couche AWS / IAM"]
+        OIDC2["OIDC GitHub Actions\naucune clé statique"]
+        IAMlp["IAM least-privilege\npermissions accordées\nde façon incrémentale"]
+        SG["Security Group EKS\nself-referencing,\naucune entrée depuis Internet"]
+    end
+
+    subgraph L2["Couche Kubernetes"]
+        RBAC["RBAC least-privilege\nServiceAccount myapp :\naucune permission API"]
+        SC["SecurityContext\nnon-root, readOnlyRootFilesystem,\nseccompProfile, capabilities drop ALL"]
+        NP["NetworkPolicy\ndefault-deny + autorisations\nexplicites (ingress ALB, egress DNS)"]
+        PSA["Pod Security Admission\nmode restricted sur default"]
+    end
+
+    subgraph L3["Couche conteneur"]
+        Trivy2["Scan Trivy en CI\ngate HIGH/CRITICAL"]
+        Image["Image minimale\nnpm/npx retirés du runtime"]
+    end
+
+    Attaquant((Tentative\nd'accès non autorisé))
+
+    Attaquant -.->|bloqué| L1
+    Attaquant -.->|bloqué| L2
+    Attaquant -.->|bloqué| L3
+
+    classDef layer fill:#eef1f6,stroke:#8892a6
+    class L1,L2,L3 layer

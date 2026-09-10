@@ -1,0 +1,28 @@
+flowchart TB
+    Internet((Internet))
+    IGW[Internet Gateway]
+
+    subgraph VPC["VPC 10.20.0.0/16"]
+        subgraph SubA["Subnet public 10.20.1.0/24 - us-east-1a"]
+            ALBeniA[ALB ENI]
+        end
+        subgraph SubB["Subnet public 10.20.2.0/24 - us-east-1b"]
+            NodeB["Nœud EKS t3.medium\n(pods: myapp, ALB controller,\nmetrics-server, monitoring, Velero)"]
+            ALBeniB[ALB ENI]
+        end
+    end
+
+    subgraph AWSManaged["Géré par AWS, hors VPC client"]
+        EKSCP[Control plane EKS\nAPI Kubernetes]
+        ECR[(ECR)]
+        S3[(S3 - backups Velero)]
+    end
+
+    Internet --> IGW --> ALBeniA & ALBeniB
+    ALBeniA & ALBeniB -->|trafic direct vers les pods\ntarget-type ip| NodeB
+    NodeB -->|kubelet| EKSCP
+    NodeB -->|pull image| ECR
+    NodeB -->|backup/restore objets K8s| S3
+
+    classDef managed fill:#eef1f6,stroke:#8892a6
+    class AWSManaged managed
