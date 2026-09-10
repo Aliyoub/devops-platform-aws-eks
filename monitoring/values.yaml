@@ -1,0 +1,85 @@
+# Surcharges pour prometheus-community/kube-prometheus-stack (chart 90.0.0)
+# adaptées à un cluster EKS mono-nœud, low-cost, détruit entre les sessions
+# de travail. Voir monitoring/README.md pour le détail des choix.
+
+alertmanager:
+  # Pas d'alerting configuré dans ce projet (pas de destinataire réel,
+  # pas de PagerDuty/Slack) : l'installer sans jamais rien y envoyer
+  # n'apporterait rien et consommerait des ressources sur un seul nœud.
+  enabled: false
+
+# EKS est un control plane managé : etcd, kube-scheduler et
+# kube-controller-manager tournent chez AWS, hors de portée du client. Les
+# ServiceMonitor par défaut de ce chart pour ces composants échoueraient
+# systématiquement (endpoints inexistants côté cluster) - désactivés
+# explicitement plutôt que laissés en échec silencieux.
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    retention: 6h
+    # Pas de stockage persistant : ce cluster est détruit entre les
+    # sessions de travail, et provisionner un volume EBS demanderait
+    # d'installer l'add-on EBS CSI driver pour un gain nul ici (rien
+    # n'a besoin de survivre à la destruction du cluster).
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+grafana:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      # 128Mi (essayé en premier) faisait OOMKiller le conteneur grafana
+      # dès le démarrage (image grafana/grafana:13.2.1-distroless) -
+      # constaté réellement via `kubectl describe pod` (status OOMKilled),
+      # pas anticipé à l'avance.
+      memory: 384Mi
+  # Pas de mot de passe admin fixé ici : Helm en génère un aléatoirement,
+  # récupéré via kubectl (voir monitoring/README.md). Un mot de passe fixe
+  # dans un fichier commité serait exactement le genre de credential en
+  # clair que ce projet évite partout ailleurs.
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: ALL
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi

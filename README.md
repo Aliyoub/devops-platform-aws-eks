@@ -63,7 +63,7 @@ troubleshooting réel, disaster recovery adapté à un Kubernetes managé.
 | 5 | Cluster EKS + node group | Fait |
 | 6 | Helm chart + AWS Load Balancer Controller | Fait |
 | 7 | Pipeline CD (déploiement automatisé) | Fait |
-| 8 | Observabilité (Prometheus/Grafana) | Prévu |
+| 8 | Observabilité (Prometheus/Grafana) | Fait |
 | 9 | Durcissement sécurité (RBAC, NetworkPolicy, PSA, Trivy) | Prévu |
 | 10 | Scénarios de troubleshooting réellement reproduits | Prévu |
 | 11 | Disaster recovery (Velero + résilience nœud) | Prévu |
@@ -290,6 +290,32 @@ correctif : https://github.com/Aliyoub/devops-platform-aws-eks/actions/runs/3439
 **Résultat attendu :** côté IAM, seulement 2 policies (`ecr-push`,
 `eks-describe`) — rien de plus. Côté EKS, `AmazonEKSEditPolicy` appliquée
 uniquement au namespace `default`, jamais un accès cluster-admin.
+
+### Observabilité — Prometheus/Grafana (`monitoring/`)
+
+`kube-prometheus-stack` (chart 90.0.0) installé avec des réglages adaptés à
+un cluster EKS mono-nœud : Alertmanager désactivé (aucune destination
+réelle configurée), moniteurs `etcd`/`kube-scheduler`/`kube-controller-manager`
+désactivés (control plane managé par AWS, non exposé au client), pas de
+stockage persistant (infrastructure détruite entre les sessions). Mot de
+passe admin Grafana généré aléatoirement par Helm, jamais commité.
+
+Un dashboard Grafana personnalisé (`monitoring/dashboards/myapp-overview.json`,
+6 panneaux : pods disponibles/voulus, pods `Running`, CPU et mémoire par
+pod de l'application, CPU et mémoire du nœud) est appliqué automatiquement
+via un ConfigMap labellisé, découvert par le sidecar Grafana — aucune étape
+manuelle dans l'UI.
+
+**Bug réel rencontré** : le premier `helm install` a échoué, le conteneur
+Grafana partant en `OOMKilled` en boucle (limite mémoire de 128 Mi
+insuffisante pour l'image `grafana/grafana:13.2.1-distroless`). Constaté
+via `kubectl describe pod`, corrigé en passant la limite à 384 Mi, revérifié
+par un `helm upgrade` réel. Détail complet dans `monitoring/README.md`.
+
+Chaque panneau vérifié individuellement avec de vraies requêtes PromQL
+retournant des données réelles (pas seulement "le dashboard s'affiche") :
+par exemple `kube_deployment_status_replicas_available{namespace="default",
+deployment="myapp"}` renvoie bien `2`.
 
 ---
 

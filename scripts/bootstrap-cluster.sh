@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Installe les composants de plateforme sur un cluster EKS fraîchement créé
-# par Terraform : AWS Load Balancer Controller. Volontairement séparé du
-# pipeline CD (cd.yml) - la CD ne déploie que l'application, jamais les
-# composants partagés du cluster (voir helm/README.md).
+# par Terraform : AWS Load Balancer Controller, kube-prometheus-stack.
+# Volontairement séparé du pipeline CD (cd.yml) - la CD ne déploie que
+# l'application, jamais les composants partagés du cluster (voir
+# helm/README.md et monitoring/README.md).
 #
 # Usage : ./scripts/bootstrap-cluster.sh
 # Prérequis : terraform apply déjà exécuté, kubeconfig déjà configuré
@@ -37,3 +38,29 @@ KUBECONFIG="$KUBECONFIG_PATH" kubectl rollout status deployment/aws-load-balance
 
 echo ""
 echo "Contrôleur ALB installé et pret."
+
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts > /dev/null
+helm repo update > /dev/null
+
+KUBECONFIG="$KUBECONFIG_PATH" kubectl create namespace monitoring \
+  --dry-run=client -o yaml | KUBECONFIG="$KUBECONFIG_PATH" kubectl apply -f - > /dev/null
+
+KUBECONFIG="$KUBECONFIG_PATH" helm upgrade --install kube-prometheus-stack \
+  prometheus-community/kube-prometheus-stack \
+  --version 90.0.0 \
+  -n monitoring \
+  -f monitoring/values.yaml \
+  --wait --timeout 5m
+
+echo ""
+echo "kube-prometheus-stack installé et pret."
+
+./scripts/apply-dashboards.sh
+
+echo ""
+echo "Mot de passe admin Grafana :"
+KUBECONFIG="$KUBECONFIG_PATH" kubectl get secret --namespace monitoring \
+  -l app.kubernetes.io/component=admin-secret \
+  -o jsonpath="{.items[0].data.admin-password}" | base64 --decode
+echo ""
+echo "Accès : kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80"
