@@ -1,0 +1,30 @@
+# Pod de debug utilisant le ServiceAccount debug-tools, pour tester
+# concrètement ce qu'il peut (ou ne peut pas) faire contre l'API
+# Kubernetes avec son propre token, plutôt que de se fier uniquement à
+# `kubectl auth can-i`.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debug-tools
+  namespace: default
+spec:
+  serviceAccountName: debug-tools
+  automountServiceAccountToken: true
+  # Le namespace default impose Pod Security Admission "restricted"
+  # (Phase 9) - ce pod de debug doit s'y conformer comme n'importe quel
+  # autre, pas d'exception.
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: kubectl
+      image: bitnami/kubectl:latest
+      command: ["sleep", "3600"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+  restartPolicy: Never

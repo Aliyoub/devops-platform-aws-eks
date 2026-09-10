@@ -1,0 +1,26 @@
+# Correction : le strict minimum pour ce que debug-tools doit faire (lire
+# les pods du namespace default), rien de plus - pas de create/delete, pas
+# de secrets, pas de cluster-wide.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: debug-tools-pod-reader
+  namespace: default
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: debug-tools-pod-reader
+  namespace: default
+subjects:
+  - kind: ServiceAccount
+    name: debug-tools
+    namespace: default
+roleRef:
+  kind: Role
+  name: debug-tools-pod-reader
+  apiGroup: rbac.authorization.k8s.io

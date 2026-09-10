@@ -65,7 +65,7 @@ troubleshooting réel, disaster recovery adapté à un Kubernetes managé.
 | 7 | Pipeline CD (déploiement automatisé) | Fait |
 | 8 | Observabilité (Prometheus/Grafana) | Fait |
 | 9 | Durcissement sécurité (RBAC, NetworkPolicy, PSA, Trivy) | Fait |
-| 10 | Scénarios de troubleshooting réellement reproduits | Prévu |
+| 10 | Scénarios de troubleshooting réellement reproduits | Fait |
 | 11 | Disaster recovery (Velero + résilience nœud) | Prévu |
 | 12 | Diagrammes, captures d'écran, finalisation documentation | Prévu |
 | 13 | Revue des coûts, `terraform destroy`, rapport final | Prévu |
@@ -368,6 +368,28 @@ Défense en profondeur sur trois couches — détail complet dans
 
 **Résultat attendu :** `{"enableNetworkPolicy":"true"}` sur l'addon
 `vpc-cni` — identique à la configuration Terraform appliquée.
+
+### Troubleshooting (`troubleshooting/`)
+
+5 incidents réalistes **réellement reproduits** sur le cluster de ce
+projet (pas décrits de mémoire) : déclenchés volontairement, diagnostiqués
+avec les vraies commandes `kubectl`, corrigés, puis vérifiés — sorties de
+commandes réelles à chaque étape. Détail complet dans
+`troubleshooting/README.md`.
+
+| # | Incident | Cause |
+|---|---|---|
+| 1 | Pod ne démarre pas | Probe de liveness pointant vers un chemin inexistant |
+| 2 | Service inaccessible | Sélecteur du Service ne correspondant à aucun pod |
+| 3 | RBAC insuffisant | ServiceAccount sans Role/RoleBinding |
+| 4 | Pod bloqué en Pending | `resources.requests` dépassant la capacité du nœud |
+| 5 | ImagePullBackOff | Tag d'image inexistant sur ECR |
+
+Les incidents 1, 2, 4 et 5 ont été provoqués directement sur le
+déploiement réel `myapp` (modification temporaire du chart, observation du
+symptôme réel, correction, retour vérifié à l'état initial). L'incident 3
+utilise un ServiceAccount et un pod de debug dédiés pour ne jamais
+perturber l'application en fonctionnement.
 
 ---
 
