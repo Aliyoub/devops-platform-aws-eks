@@ -26,7 +26,8 @@ myapp/
     ├── configmap.yaml
     ├── serviceaccount.yaml
     ├── hpa.yaml
-    └── poddisruptionbudget.yaml
+    ├── poddisruptionbudget.yaml
+    └── networkpolicy.yaml
 ```
 
 Pas de `secret.yaml` : l'application n'a actuellement aucune donnée
@@ -63,6 +64,26 @@ ajouter un maintenant créerait un composant qui ne protège rien de réel.
   projet n'a qu'un seul nœud EKS).
 - **Tag d'image jamais `latest`** : le tag est le SHA court du commit
   (cohérent avec le repository ECR en `IMMUTABLE`, Phase 4).
+- **`seccompProfile: RuntimeDefault`** (Phase 9) : requis par Pod Security
+  Admission en mode `restricted`, activé sur le namespace `default`. Sans
+  lui, les pods sont rejetés à la création — constaté réellement (le
+  namespace labellisé `restricted` a immédiatement averti que les pods
+  existants violaient la policy, avant ce correctif).
+- **`NetworkPolicy` default-deny + autorisations explicites** (Phase 9) :
+  ingress limité au port applicatif depuis le CIDR du VPC, egress limité au
+  DNS uniquement. Vérifié empiriquement, pas supposé : test positif (l'ALB
+  atteint toujours l'app) et test négatif (une requête sortante vers un
+  site externe, exécutée depuis un pod, timeout comme attendu). Limite
+  honnêtement documentée dans `networkpolicy.yaml` : avec le VPC CNI, les
+  pods et les ENI de l'ALB partagent le même espace d'adressage, donc
+  l'ipBlock ne distingue pas "trafic de l'ALB" de "trafic d'un autre pod du
+  cluster" — sa vraie valeur est de limiter le port et de bloquer
+  l'extérieur du VPC, pas une segmentation pod-à-pod fine.
+- **RBAC** : le ServiceAccount `myapp` n'a aucun Role/RoleBinding — l'appli
+  ne parle jamais à l'API Kubernetes, donc la forme la plus stricte du
+  moindre privilège est de ne lui donner aucune permission. Vérifié via
+  `kubectl auth can-i list pods --as=system:serviceaccount:default:myapp`
+  → `no`.
 
 ## Déploiement réel effectué
 

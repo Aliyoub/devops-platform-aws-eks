@@ -189,3 +189,28 @@ resource "aws_eks_addon" "metrics_server" {
 
   depends_on = [aws_eks_node_group.main]
 }
+
+# vpc-cni est installé par défaut par EKS à la création du cluster, en
+# dehors de toute gestion Terraform - mais dans cet état "self-managed",
+# l'application des NetworkPolicy (helm/myapp) n'est PAS activée par
+# défaut, malgré la présence du conteneur aws-eks-nodeagent (vérifié
+# empiriquement : un test d'egress vers un site externe passait alors
+# qu'il aurait dû être bloqué par une NetworkPolicy default-deny). La clé
+# `enableNetworkPolicy` doit être positionnée explicitement - vérifiée
+# contre le schéma de configuration réel de l'addon
+# (`aws eks describe-addon-configuration`) plutôt que supposée. On
+# "adopte" ici le composant déjà présent via resolve_conflicts_on_create
+# = OVERWRITE, sans le recréer.
+resource "aws_eks_addon" "vpc_cni" {
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "vpc-cni"
+  addon_version               = "v1.23.0-eksbuild.1"
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  configuration_values = jsonencode({
+    enableNetworkPolicy = "true"
+  })
+
+  depends_on = [aws_eks_node_group.main]
+}

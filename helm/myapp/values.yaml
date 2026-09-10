@@ -53,9 +53,18 @@ securityContext:
   runAsUser: 1001
   runAsGroup: 1001
   fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
 
 containerSecurityContext:
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: true
   capabilities:
     drop: ["ALL"]
+
+networkPolicy:
+  enabled: true
+  # CIDR du VPC (terraform/variables.tf, vpc_cidr) : le AWS Load Balancer
+  # Controller envoie le trafic directement aux IP des pods (target-type
+  # "ip"), depuis les ENI de l'ALB situées dans ce VPC - pas via kube-proxy.
+  vpcCidr: 10.20.0.0/16

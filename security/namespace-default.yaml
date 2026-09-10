@@ -1,0 +1,17 @@
+# Active Pod Security Admission en mode "restricted" sur le namespace où
+# vit l'application. Un namespace existant peut être ré-appliqué (kubectl
+# apply) sans le recréer : seuls les labels sont mis à jour.
+#
+# "restricted" impose notamment runAsNonRoot, allowPrivilegeEscalation:
+# false, capabilities.drop: [ALL] et un seccompProfile explicite - le chart
+# helm/myapp a été ajusté en conséquence (voir helm/README.md). Vérifié
+# réellement : appliquer ce label sur des pods qui ne respectaient pas
+# encore ces contraintes a immédiatement produit un avertissement listant
+# la violation exacte.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: default
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest

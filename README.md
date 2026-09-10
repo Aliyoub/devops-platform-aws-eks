@@ -64,7 +64,7 @@ troubleshooting réel, disaster recovery adapté à un Kubernetes managé.
 | 6 | Helm chart + AWS Load Balancer Controller | Fait |
 | 7 | Pipeline CD (déploiement automatisé) | Fait |
 | 8 | Observabilité (Prometheus/Grafana) | Fait |
-| 9 | Durcissement sécurité (RBAC, NetworkPolicy, PSA, Trivy) | Prévu |
+| 9 | Durcissement sécurité (RBAC, NetworkPolicy, PSA, Trivy) | Fait |
 | 10 | Scénarios de troubleshooting réellement reproduits | Prévu |
 | 11 | Disaster recovery (Velero + résilience nœud) | Prévu |
 | 12 | Diagrammes, captures d'écran, finalisation documentation | Prévu |
@@ -325,6 +325,42 @@ deployment="myapp"}` renvoie bien `2`.
 CPU du nœud variant entre ~0,1 et ~0,25 cœur — cohérent avec un cluster
 mono-nœud `t3.medium` hébergeant l'app, le contrôleur ALB et le stack de
 monitoring lui-même.
+
+### Durcissement sécurité (`helm/`, `security/`, `.github/workflows/ci.yml`)
+
+Défense en profondeur sur trois couches — détail complet dans
+`security/README.md` :
+
+- **RBAC** : le ServiceAccount `myapp` n'a aucun Role/RoleBinding — vérifié
+  (`kubectl auth can-i list pods --as=system:serviceaccount:default:myapp`
+  → `no`).
+- **SecurityContext** : non-root, `readOnlyRootFilesystem`,
+  `allowPrivilegeEscalation: false`, `capabilities.drop: [ALL]`,
+  `seccompProfile: RuntimeDefault`.
+- **NetworkPolicy** default-deny + autorisations explicites (ingress limité
+  au port applicatif depuis le VPC, egress limité au DNS).
+- **Pod Security Admission** en mode `restricted` sur le namespace
+  `default`.
+- **Scan Trivy** intégré à `ci.yml`, bloque le pipeline sur toute
+  vulnérabilité HIGH/CRITICAL corrigeable.
+
+**Deux bugs réels rencontrés et corrigés, pas seulement anticipés :**
+
+1. Les `NetworkPolicy` n'avaient d'abord aucun effet réel : un test
+   d'egress volontairement interdit (requête sortante vers un site externe
+   depuis un pod) réussissait quand même, malgré un agent d'application
+   (`aws-eks-nodeagent`) bien `Running`. Cause trouvée en interrogeant le
+   schéma de configuration réel de l'addon `vpc-cni`
+   (`aws eks describe-addon-configuration`) plutôt qu'en devinant : la clé
+   `enableNetworkPolicy` n'était pas activée. Corrigé, revérifié par le
+   même test — désormais bloqué (timeout). Détail dans
+   `terraform/README.md`.
+2. Un vrai scan Trivy a trouvé des vulnérabilités HIGH/CRITICAL réelles :
+   des paquets Alpine non patchés, et surtout `npm`/`npx` embarqués dans
+   l'image finale avec leurs propres dépendances vulnérables, alors que le
+   runtime n'exécute jamais `npm`. Corrigé dans `docker/Dockerfile`,
+   revérifié par un nouveau scan : 0 vulnérabilité HIGH/CRITICAL. Détail
+   dans `docker/README.md`.
 
 ---
 

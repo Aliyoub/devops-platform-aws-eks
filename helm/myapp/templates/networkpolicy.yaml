@@ -1,0 +1,72 @@
+{{- if .Values.networkPolicy.enabled }}
+# Default-deny : sans règle explicite, aucun trafic entrant ni sortant
+# n'est autorisé pour les pods de l'application.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "myapp.fullname" . }}-default-deny
+  labels:
+    {{- include "myapp.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "myapp.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Autorise le trafic entrant depuis le VPC, sur le port applicatif
+# uniquement. Limite réelle de cette règle (documentée plutôt que passée
+# sous silence) : avec le VPC CNI, les pods ET les ENI de l'ALB tirent
+# leurs IP du même espace d'adressage (les 2 subnets publics) - un ipBlock
+# ne peut donc pas distinguer "trafic de l'ALB" de "trafic d'un autre pod
+# du cluster" dans ce design VPC plat. Sa vraie valeur ici est de limiter
+# le port exposé et de bloquer tout ce qui viendrait de l'extérieur du
+# VPC ; une isolation pod-à-pod fine demanderait des namespaceSelector/
+# podSelector ou une segmentation réseau dédiée, hors périmètre du profil
+# low-cost de ce projet.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "myapp.fullname" . }}-allow-ingress-alb
+  labels:
+    {{- include "myapp.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "myapp.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.vpcCidr }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.service.targetPort }}
+---
+# Autorise uniquement la résolution DNS sortante (CoreDNS, kube-system) -
+# rien d'autre : l'application n'appelle aucun service externe.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "myapp.fullname" . }}-allow-egress-dns
+  labels:
+    {{- include "myapp.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "myapp.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+{{- end }}

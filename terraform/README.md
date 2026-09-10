@@ -15,7 +15,7 @@ vpc.tf         # VPC, subnets, Internet Gateway, table de routage (Phase 3)
 ecr.tf         # Repository ECR + lifecycle policy (Phase 4)
 oidc.tf        # Fournisseur OIDC GitHub Actions + rôle IAM assumable (Phase 4)
 iam.tf         # Politiques IAM attachées aux rôles du projet (Phase 4+)
-eks.tf         # Cluster EKS, node group, accès admin/CD, metrics-server (Phase 5-7)
+eks.tf         # Cluster EKS, node group, accès admin/CD, add-ons metrics-server/vpc-cni (Phase 5-9)
 security-groups.tf  # Durcissement du security group par défaut du VPC (Phase 5)
 load-balancer-controller.tf  # IRSA pour l'AWS Load Balancer Controller (Phase 6)
 policies/      # Documents IAM trop volumineux pour être inline (Phase 6)
@@ -147,6 +147,30 @@ Corrigé en alignant la condition `sub` de la trust policy sur ce format
 exact. Un bon rappel que pour l'authentification, il faut vérifier ce qui
 est réellement émis plutôt que ce que la documentation ou une API annexe
 prétend.
+
+### Bug réel rencontré : l'application des NetworkPolicy n'était pas active
+
+En Phase 9, les `NetworkPolicy` du chart `helm/myapp` (default-deny +
+autorisations explicites) n'avaient aucun effet mesurable : un test d'egress
+volontairement interdit (requête HTTP sortante vers un site externe depuis
+un pod applicatif) réussissait quand même. Le conteneur
+`aws-eks-nodeagent`, censé faire respecter ces règles, tournait bien
+(`Running`), ce qui aurait pu faire croire à tort que tout fonctionnait.
+
+En creusant, `vpc-cni` n'était pas géré comme add-on EKS explicite dans ce
+projet — c'est celui installé par défaut par EKS à la création du cluster,
+en dehors de toute gestion Terraform. Dans cet état, l'application des
+NetworkPolicy n'est pas activée par défaut. Plutôt que de deviner un nom de
+variable, le schéma de configuration réel de l'addon a été interrogé
+(`aws eks describe-addon-configuration --addon-name vpc-cni ...`), qui a
+révélé la clé exacte : `enableNetworkPolicy`. Corrigé en gérant `vpc-cni`
+comme un `aws_eks_addon` Terraform explicite (adopté via
+`resolve_conflicts_on_create = "OVERWRITE"`, sans recréer le composant
+existant) avec `configuration_values = { enableNetworkPolicy = "true" }`.
+
+Revérifié empiriquement après coup, pas supposé corrigé : le même test
+d'egress échoue désormais bien (timeout), tandis que le DNS et le trafic
+entrant depuis l'ALB continuent de fonctionner normalement.
 
 ## Commandes
 

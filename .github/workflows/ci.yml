@@ -45,7 +45,21 @@ jobs:
           context: .
           file: docker/Dockerfile
           push: false
+          load: true
           tags: devops-platform-aws-eks:ci
+
+      # Gate de securite : bloque le merge si l'image contient une
+      # vulnerabilite HIGH ou CRITICAL avec un correctif disponible.
+      # UNFIXED est exclu (severity-encore-inconnue ou pas de patch upstream
+      # a appliquer de toute facon) pour eviter de bloquer sur des CVE qu'on
+      # ne peut litteralement pas corriger nous-memes.
+      - uses: aquasecurity/trivy-action@0.36.0
+        with:
+          image-ref: devops-platform-aws-eks:ci
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
 
   terraform:
     name: Terraform (fmt, validate)

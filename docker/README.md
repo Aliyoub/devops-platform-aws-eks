@@ -31,6 +31,15 @@ docker build -f docker/Dockerfile -t devops-platform-aws-eks:local .
   `helm/`, `docs/`, ...) pour garder un contexte de build petit et éviter que
   des changements ailleurs dans le repo invalident le cache des couches
   Docker.
+- **`apk upgrade` et suppression de `npm`/`npx` dans le stage final**
+  (Phase 9) : trouvé via un vrai scan Trivy, pas anticipé à l'avance. Le
+  runtime n'exécute jamais `npm` (seulement `node server.js`), mais l'image
+  de base `node:22-alpine` l'embarque quand même avec ses propres
+  dépendances vendorisées (`tar`, `pacote`, `sigstore`...), qui portaient
+  plusieurs CVE HIGH/CRITICAL réelles au moment du scan. Les retirer élimine
+  à la fois ces CVE et de la surface d'attaque inutile en production.
+  Revérifié par un scan Trivy après correction : 0 vulnérabilité
+  HIGH/CRITICAL.
 
 ## Test en local
 

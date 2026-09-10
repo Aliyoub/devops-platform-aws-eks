@@ -18,6 +18,10 @@ ALB_CONTROLLER_ROLE_ARN=$(terraform -chdir=terraform output -raw alb_controller_
 REGION="us-east-1"
 KUBECONFIG_PATH="${KUBECONFIG:-$HOME/.kube/devops-platform-aws-eks.yaml}"
 
+KUBECONFIG="$KUBECONFIG_PATH" kubectl apply -f security/namespace-default.yaml
+echo "Pod Security Admission (restricted) applique sur le namespace default."
+echo ""
+
 helm repo add eks https://aws.github.io/eks-charts > /dev/null
 helm repo update > /dev/null
 
