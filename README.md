@@ -391,6 +391,207 @@ symptôme réel, correction, retour vérifié à l'état initial). L'incident 3
 utilise un ServiceAccount et un pod de debug dédiés pour ne jamais
 perturber l'application en fonctionnement.
 
+<details>
+<summary><strong>Incident 1 — Pod ne démarre pas (cliquer pour le détail réel)</strong></summary>
+
+**Symptôme** — le pod redémarre en boucle au lieu de se stabiliser :
+
+```
+NAME                    READY   STATUS    RESTARTS      AGE
+myapp-64f967df9-8cfk4   0/1     Running   3 (19s ago)   109s
+```
+
+**Diagnostic** — `kubectl describe pod` donne la cause exacte, et
+`kubectl logs` confirme que l'application elle-même est saine :
+
+```
+Warning  Unhealthy  4s (x11 over 104s)  kubelet  Liveness probe failed: HTTP probe failed with statuscode: 404
+```
+```
+▲ Next.js 16.3.4
+✓ Ready in 0ms
+```
+
+**Cause** — le `livenessProbe` pointait vers `/wrong-health`, un chemin qui
+n'existe pas (les vraies routes sont `/health`/`/ready`).
+
+**Correction** — remettre le bon chemin dans
+`helm/myapp/templates/deployment.yaml`, puis `helm upgrade --wait`.
+
+**Vérification** :
+
+```
+NAME                    READY   STATUS    RESTARTS   AGE
+myapp-648776bd7-8s2dt   1/1     Running   0          15s
+myapp-648776bd7-p5wh8   1/1     Running   0          26s
+```
+
+Détail complet : [`troubleshooting/incident-1-pod-crashloop/`](troubleshooting/incident-1-pod-crashloop/)
+
+</details>
+
+<details>
+<summary><strong>Incident 2 — Service inaccessible (cliquer pour le détail réel)</strong></summary>
+
+**Symptôme** — pods sains, mais l'app ne répond plus du tout via l'ALB :
+
+```
+$ curl -o /dev/null -w "HTTP: %{http_code}\n" http://<alb>/health
+HTTP: 503
+```
+
+**Diagnostic** — le Service n'a aucune cible :
+
+```
+$ kubectl get endpoints myapp
+NAME    ENDPOINTS   AGE
+myapp   <none>      78m
+```
+
+`kubectl describe svc myapp` révèle pourquoi : le sélecteur ne correspond
+à aucun label réel des pods :
+
+```
+Selector:  app.kubernetes.io/instance=myapp,app.kubernetes.io/name=wrong-app-name
+```
+
+**Cause** — sélecteur du Service codé en dur et incohérent avec les labels
+réellement posés sur les pods (`myapp`).
+
+**Correction** — revenir au helper partagé (`myapp.selectorLabels`) plutôt
+qu'un sélecteur écrit à la main, puis `helm upgrade --wait`.
+
+**Vérification** :
+
+```
+$ kubectl get endpoints myapp
+myapp   10.20.2.119:3000,10.20.2.56:3000   78m
+$ curl -o /dev/null -w "HTTP: %{http_code}\n" http://<alb>/health
+HTTP: 200
+```
+
+Détail complet : [`troubleshooting/incident-2-service-inaccessible/`](troubleshooting/incident-2-service-inaccessible/)
+
+</details>
+
+<details>
+<summary><strong>Incident 3 — RBAC insuffisant (cliquer pour le détail réel)</strong></summary>
+
+**Symptôme** — un pod de debug ne peut pas lister les pods du namespace :
+
+```
+$ kubectl exec debug-tools -- kubectl get pods -n default
+Error from server (Forbidden): pods is forbidden: User
+"system:serviceaccount:default:debug-tools" cannot list resource "pods"
+in API group "" in the namespace "default"
+```
+
+**Diagnostic** :
+
+```
+$ kubectl auth can-i list pods --as=system:serviceaccount:default:debug-tools -n default
+no
+```
+
+**Cause** — le ServiceAccount `debug-tools` n'avait aucun Role/RoleBinding
+associé (comportement par défaut de Kubernetes : zéro permission).
+
+**Correction** — un `Role` scopé au strict nécessaire (lire les pods du
+namespace `default`, rien de plus), lié via un `RoleBinding`.
+
+**Vérification** — accès accordé, et surtout toujours refusé sur une
+ressource non demandée (preuve que la correction reste minimale) :
+
+```
+$ kubectl auth can-i list pods --as=system:serviceaccount:default:debug-tools -n default
+yes
+$ kubectl auth can-i list secrets --as=system:serviceaccount:default:debug-tools -n default
+no
+```
+
+Détail complet : [`troubleshooting/incident-3-rbac/`](troubleshooting/incident-3-rbac/)
+
+</details>
+
+<details>
+<summary><strong>Incident 4 — Pod bloqué en Pending (cliquer pour le détail réel)</strong></summary>
+
+**Symptôme** :
+
+```
+NAME                    READY   STATUS    RESTARTS   AGE
+myapp-5975868d7-nlmd9   0/1     Pending   0          41s
+```
+
+**Diagnostic** — `kubectl describe pod` nomme directement la ressource en
+cause :
+
+```
+Warning  FailedScheduling  48s  default-scheduler  0/1 nodes are
+available: 1 Insufficient cpu.
+```
+
+**Cause** — `resources.requests.cpu` fixé à `10` (10 cœurs), très au-delà
+de la capacité du nœud unique (`t3.medium`, 2 vCPU). Un premier essai avec
+seulement `requests.cpu=10` avait d'ailleurs été rejeté encore plus tôt, à
+l'admission du Deployment (Kubernetes refuse `request > limit`) — il a
+fallu élever aussi la limite pour obtenir le vrai scénario de scheduling
+visé.
+
+**Correction** — retour aux valeurs réalistes de `values-dev.yaml`
+(`requests.cpu: 100m`), `helm upgrade --wait`.
+
+**Vérification** :
+
+```
+NAME                    READY   STATUS    RESTARTS   AGE
+myapp-648776bd7-8s2dt   1/1     Running   0          8m18s
+myapp-648776bd7-p5wh8   1/1     Running   0          8m29s
+```
+
+Détail complet : [`troubleshooting/incident-4-resources/`](troubleshooting/incident-4-resources/)
+
+</details>
+
+<details>
+<summary><strong>Incident 5 — ImagePullBackOff (cliquer pour le détail réel)</strong></summary>
+
+**Symptôme** :
+
+```
+NAME                     READY   STATUS         RESTARTS   AGE
+myapp-5d467f95d4-r6r8l   0/1     ErrImagePull   0          63s
+```
+
+**Diagnostic** — `kubectl describe pod` renvoie le message exact du
+registre :
+
+```
+Warning  Failed   kubelet   Failed to pull image "...devops-platform-aws-eks-dev:does-not-exist":
+rpc error: code = NotFound desc = ... not found
+Normal   BackOff  kubelet   Back-off pulling image "...does-not-exist"
+Warning  Failed   kubelet   Error: ImagePullBackOff
+```
+
+**Cause** — tag d'image (`does-not-exist`) jamais poussé sur ECR.
+
+**Correction** — redéployer avec un tag réellement présent sur ECR (le SHA
+du commit construit par la CI/CD), `helm upgrade --wait`.
+
+**Vérification** :
+
+```
+NAME                    READY   STATUS    RESTARTS   AGE
+myapp-648776bd7-8s2dt   1/1     Running   0          10m
+myapp-648776bd7-p5wh8   1/1     Running   0          10m
+$ curl -o /dev/null -w "HTTP: %{http_code}\n" http://<alb>/health
+HTTP: 200
+```
+
+Détail complet : [`troubleshooting/incident-5-imagepullbackoff/`](troubleshooting/incident-5-imagepullbackoff/)
+
+</details>
+
 ---
 
 ## Développement local
