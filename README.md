@@ -632,6 +632,13 @@ Découverte réelle et positive : le backup couvrant tout le namespace
 `helm upgrade` normal a fonctionné juste après, sans réconciliation
 manuelle.
 
+**Le bucket S3 des sauvegardes, dans la console AWS :**
+
+![Contenu du bucket S3 Velero, dossiers backups et restores](docs/screenshots/phase11-velero-s3-bucket.png)
+
+**Résultat attendu :** deux dossiers, `backups/` et `restores/` — cohérent
+avec le cycle backup → restore réellement exécuté ci-dessus.
+
 **2. Test de résilience nœud** (2ᵉ nœud temporaire, coût confirmé avant
 exécution, ~0,04 $ pour quelques minutes) : `kubectl drain` du nœud
 hébergeant les 2 replicas de l'application.
