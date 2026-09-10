@@ -53,7 +53,7 @@ jobs:
       # UNFIXED est exclu (severity-encore-inconnue ou pas de patch upstream
       # a appliquer de toute facon) pour eviter de bloquer sur des CVE qu'on
       # ne peut litteralement pas corriger nous-memes.
-      - uses: aquasecurity/trivy-action@0.36.0
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: devops-platform-aws-eks:ci
           format: table
