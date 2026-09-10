@@ -19,6 +19,7 @@ eks.tf         # Cluster EKS, node group, accès admin/CD, add-ons metrics-serve
 security-groups.tf  # Durcissement du security group par défaut du VPC (Phase 5)
 load-balancer-controller.tf  # IRSA pour l'AWS Load Balancer Controller (Phase 6)
 policies/      # Documents IAM trop volumineux pour être inline (Phase 6)
+velero.tf      # Bucket S3 + IRSA pour Velero (Phase 11)
 ```
 
 ## Choix effectués
@@ -171,6 +172,19 @@ existant) avec `configuration_values = { enableNetworkPolicy = "true" }`.
 Revérifié empiriquement après coup, pas supposé corrigé : le même test
 d'egress échoue désormais bien (timeout), tandis que le DNS et le trafic
 entrant depuis l'ALB continuent de fonctionner normalement.
+
+### Velero (`velero.tf`, Phase 11)
+
+- **Bucket S3 en `force_destroy = true`** : même raison que `force_delete`
+  sur ECR (Phase 4) — ne jamais bloquer un `terraform destroy` entre deux
+  sessions de travail parce que le bucket contient encore des sauvegardes.
+- **Aucune permission IAM EC2/EBS** accordée à Velero (snapshots de
+  volumes) : ce projet n'a aucun `PersistentVolume`, les accorder serait
+  une permission inutilisée. Voir `disaster-recovery/README.md`.
+- **IRSA via le fournisseur OIDC du cluster déjà existant**
+  (`aws_iam_openid_connect_provider.eks`, créé en Phase 6 pour le
+  contrôleur ALB) plutôt qu'un nouveau fournisseur — un cluster n'a qu'un
+  seul OIDC issuer, pas besoin d'en recréer un par composant.
 
 ## Commandes
 

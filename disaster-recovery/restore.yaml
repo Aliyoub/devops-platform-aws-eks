@@ -1,0 +1,7 @@
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: myapp-restore
+  namespace: velero
+spec:
+  backupName: myapp-backup

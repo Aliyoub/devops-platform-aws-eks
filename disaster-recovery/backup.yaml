@@ -1,0 +1,10 @@
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: myapp-backup
+  namespace: velero
+spec:
+  includedNamespaces:
+    - default
+  storageLocation: default
+  ttl: 24h0m0s

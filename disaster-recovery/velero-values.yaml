@@ -1,0 +1,34 @@
+# Surcharges pour vmware-tanzu/velero (chart 12.1.0). Voir
+# disaster-recovery/README.md pour le raisonnement complet.
+
+credentials:
+  # Authentification par IRSA (rôle IAM lié au ServiceAccount, terraform/velero.tf) -
+  # pas de clé statique stockée en Secret Kubernetes.
+  useSecret: false
+
+serviceAccount:
+  server:
+    name: velero
+    annotations:
+      eks.amazonaws.com/role-arn: "REMPLACE_PAR_TERRAFORM_OUTPUT_velero_role_arn"
+
+initContainers:
+  - name: velero-plugin-for-aws
+    image: velero/velero-plugin-for-aws:v1.14.2
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+      - mountPath: /target
+        name: plugins
+
+configuration:
+  backupStorageLocation:
+    - name: default
+      provider: aws
+      bucket: "REMPLACE_PAR_TERRAFORM_OUTPUT_velero_bucket_name"
+      config:
+        region: us-east-1
+  # Aucun VolumeSnapshotLocation : ce projet n'a aucun PersistentVolume
+  # (Prometheus/Grafana tournent en stockage éphémère, voir
+  # monitoring/README.md) - en définir un échouerait de toute façon sans
+  # provider de snapshot configuré, et n'aurait rien à sauvegarder.
+  volumeSnapshotLocation: []

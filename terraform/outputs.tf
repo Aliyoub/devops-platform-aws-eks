@@ -62,3 +62,13 @@ output "alb_controller_role_arn" {
   description = "ARN du rôle IAM (IRSA) pour l'AWS Load Balancer Controller."
   value       = aws_iam_role.alb_controller.arn
 }
+
+output "velero_role_arn" {
+  description = "ARN du rôle IAM (IRSA) pour Velero."
+  value       = aws_iam_role.velero.arn
+}
+
+output "velero_bucket_name" {
+  description = "Nom du bucket S3 des sauvegardes Velero."
+  value       = aws_s3_bucket.velero_backups.bucket
+}

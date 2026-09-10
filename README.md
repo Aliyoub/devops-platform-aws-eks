@@ -66,7 +66,7 @@ troubleshooting réel, disaster recovery adapté à un Kubernetes managé.
 | 8 | Observabilité (Prometheus/Grafana) | Fait |
 | 9 | Durcissement sécurité (RBAC, NetworkPolicy, PSA, Trivy) | Fait |
 | 10 | Scénarios de troubleshooting réellement reproduits | Fait |
-| 11 | Disaster recovery (Velero + résilience nœud) | Prévu |
+| 11 | Disaster recovery (Velero + résilience nœud) | Fait |
 | 12 | Diagrammes, captures d'écran, finalisation documentation | Prévu |
 | 13 | Revue des coûts, `terraform destroy`, rapport final | Prévu |
 
@@ -591,6 +591,66 @@ HTTP: 200
 Détail complet : [`troubleshooting/incident-5-imagepullbackoff/`](troubleshooting/incident-5-imagepullbackoff/)
 
 </details>
+
+### Disaster Recovery (`disaster-recovery/`)
+
+Le brief initial demandait un snapshot/restore etcd classique —
+techniquement impossible sur un control plane EKS managé (AWS le gère,
+aucun accès client). Adapté en deux volets, tous deux réellement testés,
+raisonnement complet dans `disaster-recovery/README.md` :
+
+**1. Backup/restore applicatif avec Velero** (bucket S3 dédié, IRSA, pas de
+permissions EBS accordées puisque ce projet n'a aucun `PersistentVolume`) :
+
+```
+$ kubectl apply -f disaster-recovery/backup.yaml
+$ kubectl get backup myapp-backup -n velero
+Phase: Completed   Items Backed Up: 128/128
+
+$ helm uninstall myapp   # désastre simulé, réel
+$ kubectl get deploy,svc,ingress -l app.kubernetes.io/instance=myapp
+No resources found in default namespace.
+
+$ kubectl apply -f disaster-recovery/restore.yaml
+$ kubectl get restore myapp-restore -n velero
+Phase: PartiallyFailed   Items Restored: 41/41   Errors: 1
+```
+
+L'unique erreur touchait un `TargetGroupBinding` généré automatiquement
+par le contrôleur ALB (référençant un target group déjà supprimé) — sans
+conséquence : le contrôleur l'a régénéré tout seul en reconciliant
+l'Ingress restauré. Tout le reste (Deployment, Service, ConfigMap, HPA,
+PDB, NetworkPolicy, ServiceAccount) restauré et fonctionnel :
+
+```
+$ curl http://<nouvel-alb>/ready
+{"status":"ready","environment":"dev"}
+```
+
+Découverte réelle et positive : le backup couvrant tout le namespace
+`default` a incidemment restauré le Secret de suivi interne de Helm — un
+`helm upgrade` normal a fonctionné juste après, sans réconciliation
+manuelle.
+
+**2. Test de résilience nœud** (2ᵉ nœud temporaire, coût confirmé avant
+exécution, ~0,04 $ pour quelques minutes) : `kubectl drain` du nœud
+hébergeant les 2 replicas de l'application.
+
+```
+evicting pod default/myapp-648776bd7-8s2dt
+error when evicting pods/"myapp-648776bd7-8s2dt" -n "default" (will retry
+after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+[... jusqu'à ce que le remplaçant soit Ready sur l'autre nœud ...]
+pod/myapp-648776bd7-8s2dt evicted
+```
+
+Le `PodDisruptionBudget` a réellement bloqué l'éviction du dernier pod
+tant que son remplaçant n'était pas prêt ailleurs. Disponibilité mesurée
+pendant l'opération (pas supposée) : ~18 secondes de creux (`502`/timeout)
+pendant la bascule de l'ALB, puis rétabli. Honnêteté sur la limite : avec
+un seul nœud de départ, les deux replicas partageaient le même point de
+défaillance — une vraie haute disponibilité demanderait plusieurs nœuds en
+permanence, un choix délibérément écarté pour rester low-cost.
 
 ---
 
