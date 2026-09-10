@@ -362,6 +362,13 @@ Défense en profondeur sur trois couches — détail complet dans
    revérifié par un nouveau scan : 0 vulnérabilité HIGH/CRITICAL. Détail
    dans `docker/README.md`.
 
+**La correction du bug NetworkPolicy, dans la console AWS :**
+
+![Configuration enableNetworkPolicy de l'addon vpc-cni](docs/screenshots/phase9-vpc-cni-network-policy-config.png)
+
+**Résultat attendu :** `{"enableNetworkPolicy":"true"}` sur l'addon
+`vpc-cni` — identique à la configuration Terraform appliquée.
+
 ---
 
 ## Développement local
