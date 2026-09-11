@@ -16,11 +16,12 @@ Une plateforme DevOps/Cloud déployée sur AWS EKS : Terraform, Docker,
 Kubernetes, Helm, GitHub Actions (OIDC), sécurité, observabilité,
 troubleshooting et disaster recovery.
 
-> **Statut : les 11 premières phases sont terminées et vérifiées
-> réellement (Phases 0 à 11 du plan d'implémentation — infrastructure,
-> CI/CD, sécurité, observabilité, troubleshooting, disaster recovery).
-> Reste la finalisation de la documentation et la revue finale des
-> coûts.**
+> **Statut : projet terminé.** Les 13 phases du plan d'implémentation sont
+> faites et vérifiées réellement (infrastructure, CI/CD, sécurité,
+> observabilité, troubleshooting, disaster recovery, documentation, revue
+> des coûts). Infrastructure détruite entre les sessions de travail —
+> coût réel total du projet : **1,24 $** (détail dans la section
+> [Coûts AWS](#coûts-aws)).
 > Ce README reflète honnêtement ce qui est réellement fait et vérifié, pas
 > l'objectif final présenté comme acquis. La section
 > [Avancement](#avancement) fait la distinction phase par phase.
@@ -82,8 +83,8 @@ troubleshooting réel, disaster recovery adapté à un Kubernetes managé.
 | 9 | Durcissement sécurité (RBAC, NetworkPolicy, PSA, Trivy) | Fait |
 | 10 | Scénarios de troubleshooting réellement reproduits | Fait |
 | 11 | Disaster recovery (Velero + résilience nœud) | Fait |
-| 12 | Diagrammes, captures d'écran, finalisation documentation | Prévu |
-| 13 | Revue des coûts, `terraform destroy`, rapport final | Prévu |
+| 12 | Diagrammes, captures d'écran, finalisation documentation | Fait |
+| 13 | Revue des coûts, `terraform destroy`, rapport final | Fait |
 
 Chaque étape marquée "Fait" a été réellement exécutée et vérifiée (build,
 tests, `terraform apply`, contrôle indépendant via AWS CLI le cas échéant) —
@@ -807,25 +808,27 @@ temporairement lors du test de résilience, Phase 11), infrastructure
 détruite entre les sessions de travail plutôt que laissée tourner en
 continu.
 
-**Coût réel vérifié via AWS Cost Explorer** (pas une estimation) sur la
-période où l'infrastructure a existé jusqu'ici :
+**Coût réel final, vérifié via AWS Cost Explorer** (pas une estimation) sur
+toute la durée du projet (2026-09-08 → 2026-09-11, toutes les sessions de
+travail confondues) :
 
 | Service | Coût |
 |---|---|
-| Amazon EKS (control plane) | 0,3827 $ |
-| EC2 (nœud(s)) | 0,1115 $ |
-| Elastic Load Balancing (ALB) | 0,0675 $ |
-| VPC | 0,0393 $ |
-| S3 (backups Velero) + divers | ~0,002 $ |
-| **Total vérifié** | **~0,61 $** |
+| Amazon EKS (control plane) | 0,6991 $ |
+| EC2 (nœud(s), y compris le 2ᵉ nœud temporaire du test de résilience) | 0,2832 $ |
+| Elastic Load Balancing (ALB) | 0,1350 $ |
+| VPC | 0,0845 $ |
+| EC2 - Other (EBS/volumes) | 0,0153 $ |
+| S3 (backups Velero) | 0,0029 $ |
+| AWS Cost Explorer (vérifier ce coût a lui-même un coût — clin d'œil méta) | 0,0200 $ |
+| Route 53 | 0,0021 $ *(hors périmètre de ce projet — activité préexistante du compte, non liée à cette infrastructure)* |
+| **Total réel du projet** | **1,2423 $** |
 
-Ce chiffre ne couvre pas encore les dernières heures de travail (Phases
-8-11) : les données de facturation AWS ont un délai d'environ 24h avant
-d'apparaître dans Cost Explorer. Le total final sera confirmé en Phase 13,
-une fois toutes les données disponibles — mais l'ordre de grandeur réel du
-projet complet restera de quelques dollars, très loin des ~150-160 $/mois
-qu'un profil "prod-like" tournant en continu aurait coûté (détail dans
-`PLAN.md`, section coûts).
+Pour comparaison, un profil "prod-like" (subnets privés + NAT Gateway)
+tournant en continu aurait coûté environ 150-160 $/mois (détail dans
+`PLAN.md`). Détruire l'infrastructure entre chaque session de travail,
+plutôt que la laisser tourner, a réduit le coût réel de ce projet complet
+à **un peu plus d'un dollar**.
 
 ---
 
